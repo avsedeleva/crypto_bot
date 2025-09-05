@@ -46,6 +46,7 @@ class Data(StatesGroup):
     waiting_for_prompt = State()
     waiting_for_channel = State()
     waiting_for_limit = State()
+    waiting_for_command = State()
     posts = State()
 
 
@@ -63,6 +64,8 @@ main_keyboard = ReplyKeyboardMarkup(
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
     await state.clear()
+    await state.update_data(user_id=message.from_user.id, user_username=message.from_user.username)
+    logger.info('start user %s %s', message.from_user.id, message.from_user.username)
     await message.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
     msg = await message.answer(
 
@@ -71,7 +74,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
         "Вот что я умею: \n"
         "📌 <b>Общий криптодайджест</b> – соберу самое важное по тематике криптовалют за день.\n"
         "📌 <b>Дайджест выбранного канала</b> – соберу самое важное по указанному каналу за выбранный период.\n"
-        "📌 <b>Анализ канала</b> – проведу анализ указанного каналаза выбранный период\n"
+        "📌 <b>Анализ канала</b> – проведу анализ указанного канала за выбранный период\n"
         "🔎 Хочешь попробовать?\n"
         "🖊️ Выбери опцию:",
 
@@ -82,6 +85,24 @@ async def cmd_start(message: types.Message, state: FSMContext):
     )
     await state.update_data(period_message_id=msg.message_id)
     #await state.set_state(Data.waiting_for_prompt)
+
+# Обработчик команды /menu
+@dp.message(Command("menu"))
+async def cmd_command(message: types.Message, state: FSMContext):
+    # Удаляем старое сообщение
+    try:
+        await msg_delete(message, state)
+    except:
+        pass
+    await state.clear()
+    await state.update_data(user_id=message.from_user.id, user_username=message.from_user.username)
+    logger.info('menu user %s %s', message.from_user.id, message.from_user.username)
+    await message.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+    msg = await message.answer(
+        "🖊️ Выбери опцию:",
+        reply_markup=main_keyboard
+    )
+    await state.update_data(period_message_id=msg.message_id)
 
 # --- Обработчик кнопок ---
 
@@ -119,6 +140,15 @@ async def forecast(message: types.Message, state: FSMContext):
 
 # --- Опросная часть ---
 
+@dp.message(Data.waiting_for_command)
+async def process_command(message: types.Message, state: FSMContext):
+    # Удаляем старое сообщение
+    await msg_delete(message, state)
+    msg = await message.answer(
+        "Нажми /menu, чтоб задать новый запрос.",
+    )
+    await state.update_data(period_message_id=msg.message_id)
+
 @dp.message(Data.waiting_for_prompt)
 async def process_prompt(message: types.Message, state: FSMContext):
     await state.update_data(prompt=message.text)
@@ -132,9 +162,18 @@ async def process_channel(message: types.Message, state: FSMContext):
     await msg_delete(message, state)
 
     channel = message.text.strip()
+
     if 'https://t.me/' in channel:
         channel = f"@{channel[13:]}"
-        #print(channel)
+    if '@' not in channel:
+        msg = await message.answer(
+            "Пожалуйста, введи username или ссылку канала корректно",
+            input_field_placeholder="например: @durov, https://t.me/..."
+        )
+        #await asyncio.sleep(5)
+        #msg = await message.bot.delete_message(chat_id=message.chat.id, message_id=msg.message_id)
+        await state.update_data(period_message_id=msg.message_id)
+        return
     await state.update_data(channel=channel)
     msg = await message.answer("🗓️ За какой период нужно скачать посты (в днях). Максимум 30 дней")
     await state.update_data(period_message_id=msg.message_id)
@@ -143,22 +182,21 @@ async def process_channel(message: types.Message, state: FSMContext):
 
 @dp.message(Data.waiting_for_limit)
 async def process_limit(message: types.Message, state: FSMContext):
+    # Удаляем старое сообщение
+    await msg_delete(message, state)
+
     if not message.text.isdigit():
-        msg = await message.answer("Пожалуйста, введите число!")
-        await asyncio.sleep(5)
-        await message.bot.delete_message(chat_id=message.chat.id, message_id=msg.message_id)
+        msg = await message.answer("Пожалуйста, введи число!")
+        await state.update_data(period_message_id=msg.message_id)
         return
 
     limit = int(message.text)
     if limit < 1 or limit > 31:
-        msg = await message.answer("Пожалуйста, введите число от 1 до 31!")
-        await asyncio.sleep(5)
-        await message.bot.delete_message(chat_id=message.chat.id, message_id=msg.message_id)
+        msg = await message.answer("Пожалуйста, введи число от 1 до 31!")
+        await state.update_data(period_message_id=msg.message_id)
         return
-    await state.update_data(limit=limit)
 
-    # Удаляем старое сообщение
-    await msg_delete(message, state)
+    await state.update_data(limit=limit)
 
     await process_save_posts(message, state)
 
@@ -167,7 +205,7 @@ async def process_limit(message: types.Message, state: FSMContext):
 
 async def select_channel(message: types.Message, state: FSMContext):
     msg = await message.answer(
-        "🖊️ Введи username, ID группы/канала или ссылку (например: @durov, -10012345678, https://t.me/...)"
+        "🖊️ Введи username или ссылку канала(например: @durov, https://t.me/...)"
     )
     await state.update_data(period_message_id=msg.message_id)
     await state.set_state(Data.waiting_for_channel)
@@ -207,14 +245,22 @@ async def process_save_posts(message: types.Message, state: FSMContext):
                         document=types.BufferedInputFile(f.read(), filename=filename),
                         caption=f"✅ Вот {len(posts[channel])} постов из {channel}"
                     )
+                    if len(posts[channel]) == 0:
+                        await message.answer(
+                            f"❗Сообщения за выбранный период отсутствуют.\n"
+                            "Выбери другой период в днях(максимум 30) или задай другой запрос через команду /start"
+                        )
+                        return
             # Удаляем временный файл
             os.remove(filename)
 
         except Exception as e:
             logger.error(f"Ошибка при скачивании постов: {e}")
-            await message.answer(f"Произошла ошибка: {e}")
+            await message.answer(f"❌Произошла ошибка: username или ссылка канала указаны неверно")
+            return await select_channel(message, state)
     await state.update_data(posts=posts)
-    await send_to_ai(message, state)
+
+    return await send_to_ai(message, state)
 
 
 
@@ -260,6 +306,7 @@ async def send_to_ai(message: types.Message, state: FSMContext):
     except Exception as e:
         logger.error(f"Error: {e}")
         await message.answer("❌ Произошла ошибка при обработке запроса.")
+    await state.set_state(Data.waiting_for_command)
 
 async def simple_html_to_text(html):
     # Заменяем HTML теги на Telegram форматирование
