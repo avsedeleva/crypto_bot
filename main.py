@@ -56,7 +56,7 @@ main_keyboard = ReplyKeyboardMarkup(
 
     ],
     resize_keyboard=True,
-    input_field_placeholder="Выберите промпт..."
+    input_field_placeholder="Выберите опцию..."
 
 )
 # Обработчик команды /start
@@ -67,11 +67,11 @@ async def cmd_start(message: types.Message, state: FSMContext):
     msg = await message.answer(
 
         "🖐️Привет! Я ИИ-бот. Помогу тебе с анализом <b>Telegram-каналов</b>.\n"
-        "🔥Никакого ручного копирования — просто кидай <b>ссылку</b>, а я сделаю всё остальное!\n"
+        #"🔥Никакого ручного копирования — просто кидай <b>ссылку</b>, а я сделаю всё остальное!\n"
         "Вот что я умею: \n"
-        "📌 <b>Краткий дайджест новостей</b> – соберу самое важное за выбранный период.\n"
-        "📌 <b>Суммаризация информации</b> – сделаю краткое содержание длинных постов.\n"
-        "📌 <b>Сравнение каналов</b> – покажу, о чем пишут разные источники и в чем их различия.\n"
+        "📌 <b>Общий криптодайджест</b> – соберу самое важное по тематике криптовалют за день.\n"
+        "📌 <b>Дайджест выбранного канала</b> – соберу самое важное по указанному каналу за выбранный период.\n"
+        "📌 <b>Анализ канала</b> – проведу анализ указанного каналаза выбранный период\n"
         "🔎 Хочешь попробовать?\n"
         "🖊️ Выбери опцию:",
 
@@ -108,7 +108,6 @@ async def forecast(message: types.Message, state: FSMContext):
 
 @dp.message(F.text == "Свой промпт")
 async def forecast(message: types.Message, state: FSMContext):
-    await state.update_data(prompt=DIGEST_PROMPT)
     await msg_delete(message, state)
     msg = await message.answer(
         "🖊️Напиши ниже свой промпт.\n "
