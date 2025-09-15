@@ -263,10 +263,11 @@ async def process_save_posts(message: types.Message, state: FSMContext):
             with open(filename, 'w', encoding='utf-8') as f:
                 json.dump(posts, f, ensure_ascii=False, indent=2)
 
-            if len(posts[channel]) == 0:
+
+            if len(channel_list) < 2 and len(posts[channel]) == 0:
                 await message.answer(
                     f"❗Сообщения за выбранный период отсутствуют.\n"
-                    "Выбери другой период в днях(максимум 30) или задай другой запрос через команду /menu"
+                    "Выбери другой период в днях(максимум 30) или задай другой запрос через команду /start"
                 )
                 return
             '''if len(channel_list) < 2:
