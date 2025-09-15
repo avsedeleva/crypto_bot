@@ -45,6 +45,7 @@ async def get_deepseek_response(system_prompt: str, user_prompt: str, json_data:
         "model": "deepseek-chat",
         "temperature": 0.1,
         "messages": messages,
+        "max_tokens": 8192
     }
 
     async with aiohttp.ClientSession() as session:
@@ -75,8 +76,8 @@ async def fetch_deepseek_response_prompt(data) -> str:
     system_prompt = (f"{prompt}"
 
                     #f"Для форматирования заголовков и подзаголовко используй HTML."
-                     "В тексте используй разметку HTML для телеграм бота."
-                     #"Используй эмодзи"
+                     "В тексте используй HTML-теги для форматирования сообщения для телеграм бота."
+                     #"Используй эмодзи для выделения заголовков." (<b>, <i>, <a>, <br>, <ul>, <li>, <u>, <s>, <ol>)
                      f"Результат должен быть на русском языке."
                      )
     user_prompt = f"Данные для анализа (JSON): {json_data}"

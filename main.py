@@ -15,7 +15,9 @@ import asyncio
 import re
 # Загружаем переменные окружения (.env)
 from deepseek import fetch_deepseek_response_prompt
+from logger.logger import Logger
 from settings import DIGEST_PROMPT, GENERAL_DIGEST_PROMPT, ANALYSIS_PROMPT, CHANNEL_LIST
+
 
 load_dotenv()
 
@@ -28,8 +30,13 @@ SESSION_NAME = f'session/session_name.session'
 
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+#logging.basicConfig(level=logging.INFO)
+#logger = logging.getLogger(__name__)
+logger_manager = Logger()
+
+logger_prompt = logger_manager.get_logger_prompt("PROMPT")
+logger_answer = logger_manager.get_logger_answer("ANSWER")
+logger_general = logger_manager.get_logger_general("GENERAL")
 
 bot = Bot(
     token=BOT_TOKEN,
@@ -64,8 +71,8 @@ main_keyboard = ReplyKeyboardMarkup(
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
     await state.clear()
-    await state.update_data(user_id=message.from_user.id, user_username=message.from_user.username)
-    logger.info('start user %s %s', message.from_user.id, message.from_user.username)
+    #await state.update_data(user_id=message.from_user.id, user_username=message.from_user.username)
+    logger_general.info('USER %s %s %s START', message.from_user.id, message.from_user.first_name, message.from_user.username)
     await message.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
     msg = await message.answer(
 
@@ -83,7 +90,11 @@ async def cmd_start(message: types.Message, state: FSMContext):
         reply_markup=main_keyboard
 
     )
-    await state.update_data(period_message_id=msg.message_id)
+    await state.update_data(
+        period_message_id=msg.message_id,
+        user_id=message.from_user.id,
+        user_username=message.from_user.username
+    )
     #await state.set_state(Data.waiting_for_prompt)
 
 # Обработчик команды /menu
@@ -95,27 +106,34 @@ async def cmd_command(message: types.Message, state: FSMContext):
     except:
         pass
     await state.clear()
-    await state.update_data(user_id=message.from_user.id, user_username=message.from_user.username)
-    logger.info('menu user %s %s', message.from_user.id, message.from_user.username)
+    #await state.update_data(user_id=message.from_user.id, user_username=message.from_user.username)
+    logger_general.info('USER %s %s %s MENU', message.from_user.id, message.from_user.first_name, message.from_user.username)
     await message.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
     msg = await message.answer(
         "🖊️ Выбери опцию:",
         reply_markup=main_keyboard
     )
-    await state.update_data(period_message_id=msg.message_id)
+    await state.update_data(
+        period_message_id=msg.message_id,
+        user_id=message.from_user.id,
+        user_username=message.from_user.username
+    )
 
 # --- Обработчик кнопок ---
 
 @dp.message(F.text == "Общий криптодайджест")
 async def digest(message: types.Message, state: FSMContext):
-    await state.update_data(prompt=GENERAL_DIGEST_PROMPT)
-    await state.update_data(limit=1)
+    logger_general.info('USER %s %s %s GENERAL_DIGEST', message.from_user.id, message.from_user.first_name, message.from_user.username)
+    logger_prompt.info('USER %s %s %s GENERAL_DIGEST_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, GENERAL_DIGEST_PROMPT)
+    await state.update_data(prompt=GENERAL_DIGEST_PROMPT, limit=1)
     await msg_delete(message, state)
     await process_save_posts(message, state)
 
 
 @dp.message(F.text == "Анализ канала")
 async def analysis(message: types.Message, state: FSMContext):
+    logger_general.info('USER %s %s %s ANALYSIS', message.from_user.id, message.from_user.first_name, message.from_user.username)
+    logger_prompt.info('USER %s %s %s ANALYSIS_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, ANALYSIS_PROMPT)
     await state.update_data(prompt=ANALYSIS_PROMPT)
     await msg_delete(message, state)
     await select_channel(message=message, state=state)
@@ -123,12 +141,15 @@ async def analysis(message: types.Message, state: FSMContext):
 
 @dp.message(F.text == "Дайджест выбранного канала")
 async def forecast(message: types.Message, state: FSMContext):
+    logger_general.info('USER %s %s %s DIGEST', message.from_user.id, message.from_user.first_name, message.from_user.username)
+    logger_prompt.info('USER %s %s %s DIGEST_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, DIGEST_PROMPT)
     await state.update_data(prompt=DIGEST_PROMPT)
     await msg_delete(message, state)
     await select_channel(message=message, state=state)
 
 @dp.message(F.text == "Свой промпт")
 async def forecast(message: types.Message, state: FSMContext):
+    logger_general.info('USER %s %s %s OTHER', message.from_user.id, message.from_user.first_name, message.from_user.username)
     await msg_delete(message, state)
     msg = await message.answer(
         "🖊️Напиши ниже свой промпт.\n "
@@ -151,6 +172,7 @@ async def process_command(message: types.Message, state: FSMContext):
 
 @dp.message(Data.waiting_for_prompt)
 async def process_prompt(message: types.Message, state: FSMContext):
+    logger_prompt.info('USER %s %s %s OTHER_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, message.text)
     await state.update_data(prompt=message.text)
     # Удаляем старое сообщение
     await msg_delete(message, state)
@@ -160,7 +182,7 @@ async def process_prompt(message: types.Message, state: FSMContext):
 async def process_channel(message: types.Message, state: FSMContext):
     #Удаляем старое сообщение
     await msg_delete(message, state)
-
+    logger_general.info('USER %s %s %s CHANNEL %s', message.from_user.id, message.from_user.first_name, message.from_user.username, message.text)
     channel = message.text.strip()
 
     if 'https://t.me/' in channel:
@@ -173,6 +195,7 @@ async def process_channel(message: types.Message, state: FSMContext):
         #await asyncio.sleep(5)
         #msg = await message.bot.delete_message(chat_id=message.chat.id, message_id=msg.message_id)
         await state.update_data(period_message_id=msg.message_id)
+        logger_general.error('USER %s %s %s CHANNEL_ERROR', message.from_user.id, message.from_user.username, message.text)
         return
     await state.update_data(channel=channel)
     msg = await message.answer("🗓️ За какой период нужно скачать посты (в днях). Максимум 30 дней")
@@ -184,9 +207,10 @@ async def process_channel(message: types.Message, state: FSMContext):
 async def process_limit(message: types.Message, state: FSMContext):
     # Удаляем старое сообщение
     await msg_delete(message, state)
-
+    logger_general.info('USER %s %s %s LIMIT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, message.text)
     if not message.text.isdigit():
         msg = await message.answer("Пожалуйста, введи число!")
+        logger_general.error('USER %s %s %s LIMIT_ERROR %s', message.from_user.id, message.from_user.first_name, message.from_user.username, message.text)
         await state.update_data(period_message_id=msg.message_id)
         return
 
@@ -194,6 +218,7 @@ async def process_limit(message: types.Message, state: FSMContext):
     if limit < 1 or limit > 31:
         msg = await message.answer("Пожалуйста, введи число от 1 до 31!")
         await state.update_data(period_message_id=msg.message_id)
+        logger_general.error('USER %s %s %s LIMIT_ERROR %s', message.from_user.id, message.from_user.first_name, message.from_user.username, message.text)
         return
 
     await state.update_data(limit=limit)
@@ -234,29 +259,31 @@ async def process_save_posts(message: types.Message, state: FSMContext):
 
             # Сохраняем в файл
             filename = f"posts_{channel}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-            print(filename)
+            #print(filename)
             with open(filename, 'w', encoding='utf-8') as f:
                 json.dump(posts, f, ensure_ascii=False, indent=2)
 
-            if len(channel_list) < 2:
+            if len(posts[channel]) == 0:
+                await message.answer(
+                    f"❗Сообщения за выбранный период отсутствуют.\n"
+                    "Выбери другой период в днях(максимум 30) или задай другой запрос через команду /menu"
+                )
+                return
+            '''if len(channel_list) < 2:
                 # Отправляем файл пользователю
                 with open(filename, 'rb') as f:
                     await message.answer_document(
                         document=types.BufferedInputFile(f.read(), filename=filename),
                         caption=f"✅ Вот {len(posts[channel])} постов из {channel}"
-                    )
-                    if len(posts[channel]) == 0:
-                        await message.answer(
-                            f"❗Сообщения за выбранный период отсутствуют.\n"
-                            "Выбери другой период в днях(максимум 30) или задай другой запрос через команду /start"
-                        )
-                        return
+                    )'''
+
             # Удаляем временный файл
             os.remove(filename)
 
         except Exception as e:
-            logger.error(f"Ошибка при скачивании постов: {e}")
+            #logger_general.error(f"Ошибка при скачивании постов: {e}")
             await message.answer(f"❌Произошла ошибка: username или ссылка канала указаны неверно")
+            logger_general.error('USER %s %s %s LOADING_MSG_ERROR %s', message.from_user.id, message.from_user.first_name, message.from_user.username, e)
             return await select_channel(message, state)
     await state.update_data(posts=posts)
 
@@ -290,9 +317,11 @@ async def send_to_ai(message: types.Message, state: FSMContext):
 
     try:
         deepseek_response = await fetch_deepseek_response_prompt(data)
-        print(deepseek_response)
+        logger_answer.info('USER %s %s %s DS_ANSWER %s', message.from_user.id, message.from_user.first_name, message.from_user.username, deepseek_response)
+        #print(deepseek_response)
         deepseek_response = await simple_html_to_text(deepseek_response)
-        print(deepseek_response)
+        #print(deepseek_response)
+        logger_answer.info('USER %s %s %s FORMAT_ANSWER %s', message.from_user.id, message.from_user.first_name, message.from_user.username, deepseek_response)
 
         # Удаляем старое сообщение
         await message.bot.delete_message(chat_id=message.chat.id, message_id=msg.message_id)
@@ -304,8 +333,8 @@ async def send_to_ai(message: types.Message, state: FSMContext):
                 await message.answer(f"\n{ans}", parse_mode='Markdown')
 
     except Exception as e:
-        logger.error(f"Error: {e}")
         await message.answer("❌ Произошла ошибка при обработке запроса.")
+        logger_general.error('USER %s %s %s DS_ERROR %s', message.from_user.id, message.from_user.first_name, message.from_user.username, e)
     await state.set_state(Data.waiting_for_command)
 
 async def simple_html_to_text(html):
@@ -325,6 +354,7 @@ async def simple_html_to_text(html):
         (r'<li>(.*?)</li>', r'• \1\n'),
         (r'<p>(.*?)</p>', r'\1\n\n'),
         (r'<br\s*/?>', r'\n'),
+        (r'\n\n', r'\n'),
         (r'<[^>]+>', r''),  # Удаляем все остальные теги
     ]
 
@@ -338,7 +368,7 @@ async def simple_html_to_text(html):
     return text.strip()
 
 
-async def split_by_paragraphs_answer(text: str, max_length=4000) -> list[str]:
+async def split_by_paragraphs_answer(text: str, max_length=3800) -> list[str]:
     paragraphs = text.split('\n\n')
     chunks = []
     current_chunk = ""
@@ -371,7 +401,7 @@ async def msg_delete(message: types.Message, state: FSMContext):
 async def main():
     await client.connect()
     me = await client.get_me()
-    print(me.first_name)
+    print('START_APP', me.first_name)
     await dp.start_polling(bot)
 
 
