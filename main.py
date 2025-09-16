@@ -300,6 +300,7 @@ async def process_save_posts(message: types.Message, state: FSMContext):
 
 
             if type_prompt == "one_channel" and len(posts[channel]) == 0:
+
                 await message.answer(
                     f"❗Сообщения за выбранный период отсутствуют.\n"
                     "Выбери другой период в днях(максимум 30) или задай другой запрос через команду /start"
@@ -369,6 +370,8 @@ async def send_to_ai(message: types.Message, state: FSMContext):
         # Удаляем старое сообщение
         await message.bot.delete_message(chat_id=message.chat.id, message_id=msg.message_id)
         if data.get('limit') > days_count.days:
+            logger_answer.info('USER %s %s %s LIMIT %s COUNT_DAYS %s', message.from_user.id, message.from_user.first_name,
+                               message.from_user.username, data.get('limit'), days_count.days)
             await message.answer(
                 f"🤖 *Внимание!*"
                 f"\nВ связи с большим объемом информации, смог обработать только последние {days_count.days} дней."
