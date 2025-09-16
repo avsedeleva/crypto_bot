@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import json
 
 import aiohttp
@@ -13,6 +14,8 @@ async def split_messages(data):
     split_messages_dict = {}
     len_current_data = 0
     #count_block = 1
+    start_date = datetime.datetime.now().date()
+    print(data)
     for channel, messages in data.items():
         count_msg = 0
         for msg in messages:
@@ -27,7 +30,10 @@ async def split_messages(data):
             if not split_messages_dict.get(channel):
                 split_messages_dict[channel] = {}
             split_messages_dict[channel][count_msg] = msg
-    return split_messages_dict
+            date = datetime.datetime.fromisoformat(msg.get('date')).date()
+            if start_date > date:
+                start_date = date
+    return {'messages': split_messages_dict, "start_date": start_date}
 
 async def get_deepseek_response(system_prompt: str, user_prompt: str, json_data: str) -> str:
     url = "https://api.deepseek.com/v1/chat/completions"
@@ -68,20 +74,21 @@ async def get_deepseek_response(system_prompt: str, user_prompt: str, json_data:
             return f"Произошла ошибка: {str(e)}"
 
 
-async def fetch_deepseek_response_prompt(data) -> str:
+async def fetch_deepseek_response_prompt(data) -> dict:
     prompt = data['prompt']
     #print(data['posts'])
     split_messages_dict = await split_messages(data['posts'])
-    json_data = json.dumps(split_messages_dict, ensure_ascii=False, indent=4)
-    system_prompt = (f"{prompt}"
+    json_data = json.dumps(split_messages_dict['messages'], ensure_ascii=False, indent=4)
+    system_prompt = (
+        f"{prompt}"
 
-                    #f"Для форматирования заголовков и подзаголовко используй HTML."
-                     "В тексте используй HTML-теги для форматирования сообщения для телеграм бота."
-                     #"Используй эмодзи для выделения заголовков." (<b>, <i>, <a>, <br>, <ul>, <li>, <u>, <s>, <ol>)
-                     f"Результат должен быть на русском языке."
-                     )
+        #f"Для форматирования заголовков и подзаголовко используй HTML."
+        "В тексте используй HTML-теги для форматирования сообщения для телеграм бота."
+        #"Используй эмодзи для выделения заголовков." (<b>, <i>, <a>, <br>, <ul>, <li>, <u>, <s>, <ol>)
+        f"Результат должен быть на русском языке."
+    )
     user_prompt = f"Данные для анализа (JSON): {json_data}"
     print('Отправляемый промпт:', user_prompt)  # Для отладки
 
     answer = await get_deepseek_response(system_prompt, user_prompt, json_data)
-    return answer
+    return {'answer': answer, 'start_date': split_messages_dict['start_date']}

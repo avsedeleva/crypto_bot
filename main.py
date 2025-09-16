@@ -126,15 +126,15 @@ async def cmd_command(message: types.Message, state: FSMContext):
 async def general_digest(message: types.Message, state: FSMContext):
     logger_general.info('USER %s %s %s GENERAL_DIGEST', message.from_user.id, message.from_user.first_name, message.from_user.username)
     logger_prompt.info('USER %s %s %s GENERAL_DIGEST_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, GENERAL_DIGEST_PROMPT)
-    await state.update_data(prompt=GENERAL_DIGEST_PROMPT, type='general')
     await msg_delete(message, state)
+    await state.update_data(prompt=GENERAL_DIGEST_PROMPT, type='general', period_message_id=message.message_id)
     await select_channel(message=message, state=state)
 
 @dp.message(F.text == "Свой промпт по криптоновостям")
 async def prompt_cryptonews(message: types.Message, state: FSMContext):
     logger_general.info('USER %s %s %s GENERAL_OTHER', message.from_user.id, message.from_user.first_name, message.from_user.username)
-    await state.update_data(prompt=None, type='general')
     await msg_delete(message, state)
+    await state.update_data(prompt=None, type='general', period_message_id=message.message_id)
     await select_channel(message=message, state=state)
 
 
@@ -142,8 +142,8 @@ async def prompt_cryptonews(message: types.Message, state: FSMContext):
 async def analysis(message: types.Message, state: FSMContext):
     logger_general.info('USER %s %s %s ANALYSIS', message.from_user.id, message.from_user.first_name, message.from_user.username)
     logger_prompt.info('USER %s %s %s ANALYSIS_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, ANALYSIS_PROMPT)
-    await state.update_data(prompt=ANALYSIS_PROMPT, type="one_channel")
     await msg_delete(message, state)
+    await state.update_data(prompt=ANALYSIS_PROMPT, type="one_channel", period_message_id=message.message_id)
     await select_channel(message=message, state=state)
 
 
@@ -151,15 +151,15 @@ async def analysis(message: types.Message, state: FSMContext):
 async def digest(message: types.Message, state: FSMContext):
     logger_general.info('USER %s %s %s DIGEST', message.from_user.id, message.from_user.first_name, message.from_user.username)
     logger_prompt.info('USER %s %s %s DIGEST_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, DIGEST_PROMPT)
-    await state.update_data(prompt=DIGEST_PROMPT, type="one_channel")
     await msg_delete(message, state)
+    await state.update_data(prompt=DIGEST_PROMPT, type="one_channel", period_message_id=message.message_id)
     await select_channel(message=message, state=state)
 
 @dp.message(F.text == "Свой промпт по каналу")
 async def prompt(message: types.Message, state: FSMContext):
     logger_general.info('USER %s %s %s OTHER', message.from_user.id, message.from_user.first_name, message.from_user.username)
     await msg_delete(message, state)
-    await state.update_data(prompt=None, type='one_channel')
+    await state.update_data(prompt=None, type='one_channel', period_message_id=message.message_id)
     await select_channel(message=message, state=state)
 
 
@@ -190,10 +190,12 @@ async def process_channel(message: types.Message, state: FSMContext):
         )
         #await asyncio.sleep(5)
         #msg = await message.bot.delete_message(chat_id=message.chat.id, message_id=msg.message_id)
+        await state.update_data(period_message_id=message.message_id)
+        await msg_delete(message, state)
         await state.update_data(period_message_id=msg.message_id)
         logger_general.error('USER %s %s %s CHANNEL_ERROR', message.from_user.id, message.from_user.username, message.text)
         return
-    await state.update_data(channel=channel)
+    await state.update_data(channel=channel, period_message_id=message.message_id)
     await select_limit(message, state)
 
 
@@ -206,6 +208,8 @@ async def process_limit(message: types.Message, state: FSMContext):
     if not message.text.isdigit():
         msg = await message.answer("Пожалуйста, введи число!")
         logger_general.error('USER %s %s %s LIMIT_ERROR %s', message.from_user.id, message.from_user.first_name, message.from_user.username, message.text)
+        await state.update_data(period_message_id=message.message_id)
+        await msg_delete(message, state)
         await state.update_data(period_message_id=msg.message_id)
         return
 
@@ -213,19 +217,21 @@ async def process_limit(message: types.Message, state: FSMContext):
     max_limit =  31 if data.get('type') == 'one_channel' else 5
     if limit < 1 or limit > max_limit:
         msg = await message.answer(f"Пожалуйста, введи число от 1 до {max_limit}!")
+        await state.update_data(period_message_id=message.message_id)
+        await msg_delete(message, state)
         await state.update_data(period_message_id=msg.message_id)
         logger_general.error('USER %s %s %s LIMIT_ERROR %s', message.from_user.id, message.from_user.first_name, message.from_user.username, message.text)
         return
 
-    await state.update_data(limit=limit)
+    await state.update_data(limit=limit, period_message_id=message.message_id)
     await select_prompt(message, state)
 
 @dp.message(Data.waiting_for_prompt)
 async def process_prompt(message: types.Message, state: FSMContext):
     logger_prompt.info('USER %s %s %s OTHER_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, message.text)
-    await state.update_data(prompt=message.text)
     # Удаляем старое сообщение
     await msg_delete(message, state)
+    await state.update_data(prompt=message.text, period_message_id=message.message_id)
     await process_save_posts(message, state)
 
 
@@ -234,9 +240,10 @@ async def process_prompt(message: types.Message, state: FSMContext):
 async def select_channel(message: types.Message, state: FSMContext):
     data = await state.get_data()
     if data.get('type') == "one_channel":
+        await msg_delete(message, state)
         msg = await message.answer(
-            "🖊️ Введи username или ссылку канала(например: @durov, https://t.me/...)"
-        )
+            "🖊️ Введи username или ссылку канала(например: @durov, https://t.me/...)")
+
         await state.update_data(period_message_id=msg.message_id)
         await state.set_state(Data.waiting_for_channel)
     else:
@@ -245,6 +252,7 @@ async def select_channel(message: types.Message, state: FSMContext):
 
 async def select_limit(message: types.Message, state: FSMContext):
     data = await state.get_data()
+    await msg_delete(message, state)
     max_limit = 31 if data.get('type') == 'one_channel' else 5
     msg = await message.answer(f"🗓️ За какой период нужно скачать посты (в днях). Максимум {max_limit} дней")
     await state.update_data(period_message_id=msg.message_id)
@@ -254,6 +262,7 @@ async def select_limit(message: types.Message, state: FSMContext):
 async def select_prompt(message: types.Message, state: FSMContext):
     data = await state.get_data()
     prompt = data.get("prompt")
+    await msg_delete(message, state)
     if not prompt:
         msg = await message.answer(
             "🖊️Напиши ниже свой промпт.\n "
@@ -265,26 +274,23 @@ async def select_prompt(message: types.Message, state: FSMContext):
 
 
 async def process_save_posts(message: types.Message, state: FSMContext):
+    await msg_delete(message, state)
     posts = {}
     data = await state.get_data()
     type_prompt = data.get('type')
     channel = data.get('channel')
     limit = data.get('limit')
     channel_list = CHANNEL_LIST if type_prompt == 'general' else [channel,]
+    msg = await message.answer(f"🕔Начинаю скачивать посты...")
     for channel in channel_list:
 
         if not channel:
             continue
 
-        if type_prompt == "one_channel":
-            msg = await message.answer(f"🕔Начинаю скачивать посты за последние {limit} дней из {channel}...")
         try:
             # Скачиваем посты
             posts[channel] = await download_telegram_posts(channel, limit)
 
-            # Удаляем старое сообщение
-            if type_prompt == "one_channel":
-                await message.bot.delete_message(chat_id=message.chat.id, message_id=msg.message_id)
 
             # Сохраняем в файл
             filename = f"posts_{channel}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
@@ -316,6 +322,8 @@ async def process_save_posts(message: types.Message, state: FSMContext):
             logger_general.error('USER %s %s %s LOADING_MSG_ERROR %s', message.from_user.id, message.from_user.first_name, message.from_user.username, e)
             return await select_channel(message, state)
     await state.update_data(posts=posts)
+    # Удаляем старое сообщение
+    await message.bot.delete_message(chat_id=message.chat.id, message_id=msg.message_id)
 
     return await send_to_ai(message, state)
 
@@ -346,17 +354,27 @@ async def download_telegram_posts(channel, limit):
 async def send_to_ai(message: types.Message, state: FSMContext):
     data = await state.get_data()
     msg = await message.answer("🔄 Формирую ответ...", reply_markup=ReplyKeyboardRemove())
-
+    end_date = datetime.datetime.now().date()
     try:
         deepseek_response = await fetch_deepseek_response_prompt(data)
         logger_answer.info('USER %s %s %s DS_ANSWER %s', message.from_user.id, message.from_user.first_name, message.from_user.username, deepseek_response)
         #print(deepseek_response)
+        start_date = deepseek_response['start_date']
+        days_count = end_date - start_date + datetime.timedelta(days=1)
+        deepseek_response = deepseek_response['answer']
         deepseek_response = await simple_html_to_text(deepseek_response)
         #print(deepseek_response)
         logger_answer.info('USER %s %s %s FORMAT_ANSWER %s', message.from_user.id, message.from_user.first_name, message.from_user.username, deepseek_response)
 
         # Удаляем старое сообщение
         await message.bot.delete_message(chat_id=message.chat.id, message_id=msg.message_id)
+        if data.get('limit') > days_count.days:
+            await message.answer(
+                f"🤖 *Внимание!*"
+                f"\nВ связи с большим объемом информации, смог обработать только последние {days_count.days} дней."
+                f"\n🛠️_Работаю над расширением возможностей!_",
+                parse_mode='Markdown'
+            )
         if len(deepseek_response) < 4000:
             await message.answer(f"\n{deepseek_response}", parse_mode='Markdown')
         else:
@@ -379,7 +397,7 @@ async def simple_html_to_text(html):
         (r'<strong>(.*?)</strong>', r'*\1*'),
         (r'<i>(.*?)</i>', r'_\1_'),
         (r'<em>(.*?)</em>', r'_\1_'),
-        (r'<code>(.*?)</code>', r'`\1`'),
+        (r'<code>(.*?)</code>', r'\1'),
         (r'<pre>(.*?)</pre>', r'```\1```'),
         (r'<a\s+href=[\'"](.*?)[\'"]>(.*?)</a>', r'[\2](\1)'),
         (r'<ul>(.*?)</ul>', r'\1'),
