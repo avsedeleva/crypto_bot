@@ -222,7 +222,7 @@ async def process_limit(message: types.Message, state: FSMContext):
         return
 
     limit = int(message.text)
-    max_limit =  31 if data.get('type') == 'one_channel' else 3
+    max_limit =  31 if data.get('type') == 'one_channel' else 5
     if limit < 1 or limit > max_limit:
         msg = await message.answer(f"Пожалуйста, введи число от 1 до {max_limit}!")
         await state.update_data(period_message_id=message.message_id)
@@ -262,7 +262,7 @@ async def select_channel(message: types.Message, state: FSMContext):
 async def select_limit(message: types.Message, state: FSMContext):
     data = await state.get_data()
     #await msg_delete(message, state)
-    max_limit = 31 if data.get('type') == 'one_channel' else 3
+    max_limit = 31 if data.get('type') == 'one_channel' else 5
     msg = await message.answer(f"🗓️ За какой период нужно скачать посты (в днях). Максимум {max_limit} дней")
     await state.update_data(period_message_id=msg.message_id)
     await state.set_state(Data.waiting_for_limit)
@@ -347,8 +347,6 @@ async def download_telegram_posts(channel, limit):
     #print(end, end_date, start)
     async with client:
         async for message in client.iter_messages(channel, offset_date=end):
-            print(message)
-
             if message.date.date() < start:
                 break
             if start <= message.date.date() <= end_date and message.text != '':
@@ -398,7 +396,6 @@ async def send_to_ai(message: types.Message, state: FSMContext):
             for ans in answers:
                 await message.answer(f"\n{ans}", parse_mode='Markdown')
 
-
     except Exception as e:
         await message.answer("❌ Произошла ошибка при обработке запроса.")
         logger_general.error('USER %s %s %s DS_ERROR %s', message.from_user.id, message.from_user.first_name, message.from_user.username, e)
@@ -408,7 +405,6 @@ async def simple_html_to_text(html):
     # Заменяем HTML теги на Telegram форматирование
     replacements = [
         (r'<h1>(.*?)</h1>', r'*\1*\n\n'),
-        #(r'_', r'/_'),
         (r'<h2>(.*?)</h2>', r'*\1*\n\n'),
         (r'<h3>(.*?)</h3>', r'*\1*\n\n'),
         (r'<b>(.*?)</b>', r'*\1*'),
@@ -422,28 +418,9 @@ async def simple_html_to_text(html):
         (r'<li>(.*?)</li>', r'• \1\n'),
         (r'<p>(.*?)</p>', r'\1\n\n'),
         (r'<br\s*/?>', r'\n'),
-        (r'###', r''),
+        #(r'\n\n', r'\n'),
         (r'<[^>]+>', r''),  # Удаляем все остальные теги
     ]
-
-    '''replacements = [
-        (r'<h1>(.*?)</h1>', r'<b>\1</b>\n\n'),
-        (r'<h2>(.*?)</h2>', r'<b>\1</b>\n\n'),
-        (r'<h3>(.*?)</h3>', r'<b>\1</b>\n\n'),
-        (r'<b>(.*?)</b>', r'<b>\1</b>'),
-        (r'<strong>(.*?)</strong>', r'<b>\1</b>'),
-        (r'<i>(.*?)</i>', r'<i>\1</i>'),
-        (r'<em>(.*?)</em>', r'<i>\1</i>'),
-        (r'<code>(.*?)</code>', r'\1'),
-        (r'<pre>(.*?)</pre>', r'<pre>\1</pre>'),
-        #(r'<a\s+href=[\'"](.*?)[\'"]>(.*?)</a>', r'[\2](\1)'),
-        #(r'<ul>(.*?)</ul>', r'\1'),
-        #(r'<li>(.*?)</li>', r'• \1\n'),
-        (r'<p>(.*?)</p>', r'\1\n\n'),
-        (r'<br\s*/?>', r'\n'),
-        (r'###', r''),
-        (r'<[^>]+>', r''),  # Удаляем все остальные теги
-    ]'''
 
     text = html
     for pattern, replacement in replacements:

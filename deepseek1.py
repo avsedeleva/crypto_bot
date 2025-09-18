@@ -16,7 +16,7 @@ async def split_messages(data):
     #count_block = 1
     start_date = datetime.datetime.now().date()
     is_all_inclusive = True
-    #print(data)
+    print(data)
     for channel, messages in data.items():
         count_msg = 0
         for msg in messages:
@@ -24,10 +24,10 @@ async def split_messages(data):
                 break'''
             len_str_msg = len(str(msg))
             count_msg += 1
-            if len_str_msg + len_current_data >= 190000:
+            if len_str_msg + len_current_data >= 100000:
                 #count_block += 1
                 is_all_inclusive = False
-                print(channel)
+                print(channel, msg)
                 #break # если убрать будет несколько блоков
             else:
                 len_current_data += len_str_msg
@@ -39,10 +39,9 @@ async def split_messages(data):
                 if start_date > date:
                     start_date = date
                     print(start_date)
-    print('is_all_inclusive', is_all_inclusive)
     return {'messages': split_messages_dict, "start_date": start_date, "is_all_inclusive": is_all_inclusive }
 
-async def get_deepseek_response(system_prompt: str, user_prompt: str) -> str:
+async def get_deepseek_response(system_prompt: str, user_prompt: str, json_data: str) -> str:
     url = "https://api.deepseek.com/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer sk-c9fdde628e7845bb9da4dfc9614a5b82",  # Замените на ваш API-ключ
@@ -88,18 +87,18 @@ async def fetch_deepseek_response_prompt(data) -> dict:
     json_data = json.dumps(split_messages_dict['messages'], ensure_ascii=False, indent=4)
     system_prompt = (
         f"{prompt}"
+
         #f"Для форматирования заголовков и подзаголовко используй HTML."
         "В тексте используй HTML-теги для форматирования сообщения для телеграм бота."
         #"Используй эмодзи для выделения заголовков." (<b>, <i>, <a>, <br>, <ul>, <li>, <u>, <s>, <ol>)
         f"Результат должен быть на русском языке."
     )
     user_prompt = f"Данные для анализа (JSON): {json_data}"
-    #print('Отправляемый промпт:', user_prompt)  # Для отладки
+    print('Отправляемый промпт:', user_prompt)  # Для отладки
 
-    answer = await get_deepseek_response(system_prompt, user_prompt)
+    answer = await get_deepseek_response(system_prompt, user_prompt, json_data)
     return {
         'answer': answer,
         'start_date': split_messages_dict['start_date'],
         'is_all_inclusive': split_messages_dict['is_all_inclusive']
     }
-
