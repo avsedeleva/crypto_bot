@@ -143,7 +143,7 @@ async def general_digest(message: types.Message, state: FSMContext):
     logger_general.info('USER %s %s %s GENERAL_FORECAST', message.from_user.id, message.from_user.first_name, message.from_user.username)
     logger_prompt.info('USER %s %s %s GENERAL_FORECAST_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, GENERAL_DIGEST_PROMPT)
     await msg_delete(message, state)
-    await state.update_data(prompt=GENERAL_FORECAST_PROMPT, type='general', period_message_id=message.message_id)
+    await state.update_data(prompt=GENERAL_FORECAST_PROMPT, type='general_forecast', period_message_id=message.message_id)
     await select_channel(message=message, state=state)
 
 @dp.message(F.text == "Анализ канала")
@@ -222,7 +222,7 @@ async def process_limit(message: types.Message, state: FSMContext):
         return
 
     limit = int(message.text)
-    max_limit =  31 if data.get('type') == 'one_channel' else 5
+    max_limit =  31 if data.get('type') == 'one_channel' else 10
     if limit < 1 or limit > max_limit:
         msg = await message.answer(f"Пожалуйста, введи число от 1 до {max_limit}!")
         await state.update_data(period_message_id=message.message_id)
@@ -261,7 +261,7 @@ async def select_channel(message: types.Message, state: FSMContext):
 async def select_limit(message: types.Message, state: FSMContext):
     data = await state.get_data()
     await msg_delete(message, state)
-    max_limit = 31 if data.get('type') == 'one_channel' else 5
+    max_limit = 31 if data.get('type') == 'one_channel' else 10
     msg = await message.answer(f"🗓️ За какой период нужно скачать посты (в днях). Максимум {max_limit} дней")
     await state.update_data(period_message_id=msg.message_id)
     await state.set_state(Data.waiting_for_limit)
@@ -311,7 +311,7 @@ async def process_save_posts(message: types.Message, state: FSMContext):
 
                 await message.answer(
                     f"❗Сообщения за выбранный период отсутствуют.\n"
-                    "Выбери другой период в днях(максимум 30) или задай другой запрос через команду /start"
+                    "Выбери другой период в днях или задай другой запрос через команду /start"
                 )
                 return
             '''if len(channel_list) < 2:
