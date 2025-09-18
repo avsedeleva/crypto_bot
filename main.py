@@ -16,7 +16,7 @@ import re
 # Загружаем переменные окружения (.env)
 from deepseek import fetch_deepseek_response_prompt
 from logger.logger import Logger
-from settings import DIGEST_PROMPT, GENERAL_DIGEST_PROMPT, ANALYSIS_PROMPT, CHANNEL_LIST
+from settings import DIGEST_PROMPT, GENERAL_FORECAST_PROMPT, GENERAL_DIGEST_PROMPT, ANALYSIS_PROMPT, CHANNEL_LIST
 
 
 load_dotenv()
@@ -59,7 +59,8 @@ class Data(StatesGroup):
 
 main_keyboard = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="Общий криптодайджест"), KeyboardButton(text="Свой промпт по криптоновостям")],
+        [KeyboardButton(text="Общий криптодайджест"), KeyboardButton(text="Общий прогноз по криптоновостям")],
+        [KeyboardButton(text="Свой промпт по криптоновостям")],
         [KeyboardButton(text="Дайджест выбранного канала"), KeyboardButton(text="Анализ канала")],
         [KeyboardButton(text="Свой промпт по каналу")],
 
@@ -137,6 +138,13 @@ async def prompt_cryptonews(message: types.Message, state: FSMContext):
     await state.update_data(prompt=None, type='general', period_message_id=message.message_id)
     await select_channel(message=message, state=state)
 
+@dp.message(F.text == "Общий прогноз по криптоновостям")
+async def general_digest(message: types.Message, state: FSMContext):
+    logger_general.info('USER %s %s %s GENERAL_FORECAST', message.from_user.id, message.from_user.first_name, message.from_user.username)
+    logger_prompt.info('USER %s %s %s GENERAL_FORECAST_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, GENERAL_DIGEST_PROMPT)
+    await msg_delete(message, state)
+    await state.update_data(prompt=GENERAL_FORECAST_PROMPT, type='general', period_message_id=message.message_id)
+    await select_channel(message=message, state=state)
 
 @dp.message(F.text == "Анализ канала")
 async def analysis(message: types.Message, state: FSMContext):
