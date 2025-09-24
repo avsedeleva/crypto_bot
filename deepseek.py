@@ -35,10 +35,10 @@ async def split_messages(data):
                     split_messages_dict[channel] = {}
                 split_messages_dict[channel][count_msg] = msg
                 date = datetime.datetime.fromisoformat(msg.get('date')).date()
-                print(start_date,date, start_date > date)
+                #print(start_date,date, start_date > date)
                 if start_date > date:
                     start_date = date
-                    print(start_date)
+                    #print(start_date)
     print('is_all_inclusive', is_all_inclusive)
     return {'messages': split_messages_dict, "start_date": start_date, "is_all_inclusive": is_all_inclusive }
 
@@ -83,19 +83,11 @@ async def get_deepseek_response(system_prompt: str, user_prompt: str) -> str:
 
 async def fetch_deepseek_response_prompt(data) -> dict:
     prompt = data['prompt']
-    #print(data['posts'])
+    addition_prompt = data['addition_prompt']
     split_messages_dict = await split_messages(data['posts'])
     json_data = json.dumps(split_messages_dict['messages'], ensure_ascii=False, indent=4)
-    system_prompt = (
-        f"{prompt}"
-        #f"Для форматирования заголовков и подзаголовко используй HTML."
-        "В тексте используй HTML-теги для форматирования сообщения для телеграм бота."
-        #"Используй эмодзи для выделения заголовков." (<b>, <i>, <a>, <br>, <ul>, <li>, <u>, <s>, <ol>)
-        f"Результат должен быть на русском языке."
-    )
+    system_prompt = f"{prompt}{addition_prompt}"
     user_prompt = f"Данные для анализа (JSON): {json_data}"
-    #print('Отправляемый промпт:', user_prompt)  # Для отладки
-
     answer = await get_deepseek_response(system_prompt, user_prompt)
     return {
         'answer': answer,
