@@ -26,4 +26,4 @@ client = TelegramClient(SESSION_NAME, API_ID, API_HASH, system_version="4.16.30-
 
 if __name__ == "__main__":
     with client:
-        client.loop.run_until_complete(main(client_bot=client, bot=bot, language='en'))
+        client.loop.run_until_complete(main(client_bot=client, bot=bot))

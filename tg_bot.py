@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
-from aiogram import Dispatcher, types
-from aiogram.filters import Command
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, Message
+from aiogram import Dispatcher, types, F
+from aiogram.filters import Command, BaseFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 import os
@@ -16,7 +16,6 @@ from utilits import split_by_paragraphs_answer, simple_html_to_text
 load_dotenv()
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
-lang = None
 
 
 # Настройка логирования
@@ -37,11 +36,23 @@ class Data(StatesGroup):
     posts = State()
 
 
+class LanguageFilter(BaseFilter):
+    def __init__(self, button_key: str):
+        self.button_key = button_key
+
+    async def __call__(self, message: Message, state: FSMContext) -> bool:
+        data = await state.get_data()
+        lang = data.get('lang', 'en')
+
+        # Проверяем условие с учетом языка
+        return message.text == MESSAGES["kbd"][self.button_key].get(lang, "")
+
+
 def get_main_keyboard(lang):
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text=MESSAGES["kbd"]["general_digest"][lang]), KeyboardButton(text=MESSAGES["kbd"]["general_forecast"][lang])],
-            [KeyboardButton(text=MESSAGES["kbd"]["general_other"][lang])],
+            [KeyboardButton(text=MESSAGES["kbd"]["trending_tokens"][lang]),KeyboardButton(text=MESSAGES["kbd"]["general_digest"][lang])],
+            [KeyboardButton(text=MESSAGES["kbd"]["general_forecast"][lang]), KeyboardButton(text=MESSAGES["kbd"]["general_other"][lang])],
             [KeyboardButton(text=MESSAGES["kbd"]["digest"][lang]), KeyboardButton(text=MESSAGES["kbd"]["analysis"][lang])],
             [KeyboardButton(text=MESSAGES["kbd"]["other"][lang])],
 
@@ -50,6 +61,17 @@ def get_main_keyboard(lang):
         input_field_placeholder=MESSAGES["kbd"]["input_field"][lang]
 
 )
+
+def get_lang_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=MESSAGES["lang"]["kbd"]["ru"]), KeyboardButton(text=MESSAGES["lang"]["kbd"]["en"])],
+
+        ],
+        resize_keyboard=True,
+
+)
+
 # Обработчик команды /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
@@ -59,7 +81,8 @@ async def cmd_start(message: types.Message, state: FSMContext):
 
     logger_general.info('USER %s %s %s START', message.from_user.id, message.from_user.first_name, message.from_user.username)
     await message.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-    msg = await message.answer(
+    await select_lang(message, state)
+    '''msg = await message.answer(
         MESSAGES['start'][lang],
         reply_markup=get_main_keyboard(lang)
     )
@@ -67,7 +90,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
         period_message_id=msg.message_id,
         user_id=message.from_user.id,
         user_username=message.from_user.username
-    )
+    )'''
 
 # Обработчик команды /menu
 @dp.message(Command("menu"))
@@ -78,7 +101,8 @@ async def cmd_command(message: types.Message, state: FSMContext):
 
     logger_general.info('USER %s %s %s MENU', message.from_user.id, message.from_user.first_name, message.from_user.username)
     await message.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-    msg = await message.answer(
+    await select_lang(message, state)
+    '''msg = await message.answer(
         MESSAGES['menu'][lang],
         reply_markup=get_main_keyboard(lang)
     )
@@ -86,12 +110,36 @@ async def cmd_command(message: types.Message, state: FSMContext):
         period_message_id=msg.message_id,
         user_id=message.from_user.id,
         user_username=message.from_user.username
-    )
+    )'''
 
 # --- Обработчик кнопок ---
+@dp.message(F.text == MESSAGES["lang"]["kbd"]["ru"])
+async def ru(message: types.Message, state: FSMContext):
+    lang = "ru"
+    logger_general.info('USER %s %s %s RU', message.from_user.id, message.from_user.first_name, message.from_user.username)
+    #logger_prompt.info('USER %s %s %s GENERAL_DIGEST_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, PROMPTS["general_digest"])
+    print(lang)
+    await message.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+    await msg_delete(message, state)
+    await state.update_data(lang=lang)
+    await select_option(message=message, state=state)
+
+
+@dp.message(F.text == MESSAGES["lang"]["kbd"]["en"])
+async def en(message: types.Message, state: FSMContext):
+    lang = "en"
+    print(lang)
+    logger_general.info('USER %s %s %s EN', message.from_user.id, message.from_user.first_name, message.from_user.username)
+    #logger_prompt.info('USER %s %s %s GENERAL_DIGEST_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, PROMPTS["general_digest"])
+    await message.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+    await msg_delete(message, state)
+    await state.update_data(lang=lang)
+    await select_option(message=message, state=state)
+
 
 #@dp.message(F.text == MESSAGES["kbd"]["general_digest"][lang])
-@dp.message(lambda message: message.text == MESSAGES["kbd"]["general_digest"][lang] if lang else False)
+#@dp.message(F.text == MESSAGES["kbd"]["general_digest"][data["lang"]])
+@dp.message(LanguageFilter("general_digest"))
 async def general_digest(message: types.Message, state: FSMContext):
     logger_general.info('USER %s %s %s GENERAL_DIGEST', message.from_user.id, message.from_user.first_name, message.from_user.username)
     logger_prompt.info('USER %s %s %s GENERAL_DIGEST_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, PROMPTS["general_digest"])
@@ -100,7 +148,8 @@ async def general_digest(message: types.Message, state: FSMContext):
     await select_channel(message=message, state=state)
 
 #@dp.message(F.text == MESSAGES['general_forecast'][lang])
-@dp.message(lambda message: message.text == MESSAGES["kbd"]["general_forecast"][lang] if lang else False)
+#@dp.message(lambda message: message.text == MESSAGES["kbd"]["general_forecast"][lang] if lang else False)
+@dp.message(LanguageFilter("general_forecast"))
 async def general_forecast(message: types.Message, state: FSMContext):
     logger_general.info('USER %s %s %s GENERAL_FORECAST', message.from_user.id, message.from_user.first_name, message.from_user.username)
     logger_prompt.info('USER %s %s %s GENERAL_FORECAST_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, PROMPTS["general_forecast"])
@@ -108,8 +157,17 @@ async def general_forecast(message: types.Message, state: FSMContext):
     await state.update_data(prompt=PROMPTS["general_forecast"], type='general', period_message_id=message.message_id)
     await select_channel(message=message, state=state)
 
+@dp.message(LanguageFilter("trending_tokens"))
+async def trend_tokens(message: types.Message, state: FSMContext):
+    logger_general.info('USER %s %s %s TRENDING_TOKENS', message.from_user.id, message.from_user.first_name, message.from_user.username)
+    logger_prompt.info('USER %s %s %s TRENDING_TOKENS_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, PROMPTS["general_forecast"])
+    await msg_delete(message, state)
+    await state.update_data(prompt=PROMPTS["trending_tokens"], type='general', period_message_id=message.message_id)
+    await select_channel(message=message, state=state)
+
 #@dp.message(F.text == MESSAGES['general_other'][lang])
-@dp.message(lambda message: message.text == MESSAGES["kbd"]["general_other"][lang] if lang else False)
+#@dp.message(lambda message: message.text == MESSAGES["kbd"]["general_other"][lang] if lang else False)
+@dp.message(LanguageFilter("general_other"))
 async def prompt_cryptonews(message: types.Message, state: FSMContext):
     logger_general.info('USER %s %s %s GENERAL_OTHER', message.from_user.id, message.from_user.first_name, message.from_user.username)
     await msg_delete(message, state)
@@ -117,7 +175,8 @@ async def prompt_cryptonews(message: types.Message, state: FSMContext):
     await select_channel(message=message, state=state)
 
 #@dp.message(F.text == MESSAGES['digest'][lang])
-@dp.message(lambda message: message.text == MESSAGES["kbd"]["digest"][lang] if lang else False)
+@dp.message(LanguageFilter("digest"))
+#@dp.message(lambda message: message.text == MESSAGES["kbd"]["digest"][lang] if lang else False)
 async def digest(message: types.Message, state: FSMContext):
     logger_general.info('USER %s %s %s DIGEST', message.from_user.id, message.from_user.first_name, message.from_user.username)
     logger_prompt.info('USER %s %s %s DIGEST_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, PROMPTS["digest"])
@@ -126,7 +185,8 @@ async def digest(message: types.Message, state: FSMContext):
     await select_channel(message=message, state=state)
 
 #@dp.message(F.text == MESSAGES['analysis'][lang])
-@dp.message(lambda message: message.text == MESSAGES["kbd"]["analysis"][lang] if lang else False)
+#@dp.message(lambda message: message.text == MESSAGES["kbd"]["analysis"][lang] if lang else False)
+@dp.message(LanguageFilter("analysis"))
 async def analysis(message: types.Message, state: FSMContext):
     logger_general.info('USER %s %s %s ANALYSIS', message.from_user.id, message.from_user.first_name, message.from_user.username)
     logger_prompt.info('USER %s %s %s ANALYSIS_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, PROMPTS["analysis"])
@@ -135,7 +195,8 @@ async def analysis(message: types.Message, state: FSMContext):
     await select_channel(message=message, state=state)
 
 #@dp.message(F.text == MESSAGES['other'][lang])
-@dp.message(lambda message: message.text == MESSAGES["kbd"]["other"][lang] if lang else False)
+#@dp.message(lambda message: message.text == MESSAGES["kbd"]["other"][lang] if lang else False)
+@dp.message(LanguageFilter("other"))
 async def prompt(message: types.Message, state: FSMContext):
     logger_general.info('USER %s %s %s OTHER', message.from_user.id, message.from_user.first_name, message.from_user.username)
     await msg_delete(message, state)
@@ -149,6 +210,8 @@ async def prompt(message: types.Message, state: FSMContext):
 async def process_command(message: types.Message, state: FSMContext):
     # Удаляем старое сообщение
     await msg_delete(message, state)
+    data = await state.get_data()
+    lang = data.get("lang")
     msg = await message.answer(MESSAGES["new_command"][lang])
     await state.update_data(period_message_id=msg.message_id)
 
@@ -156,6 +219,8 @@ async def process_command(message: types.Message, state: FSMContext):
 async def process_channel(message: types.Message, state: FSMContext):
     #Удаляем старое сообщение
     await msg_delete(message, state)
+    data = await state.get_data()
+    lang = data.get("lang")
     logger_general.info('USER %s %s %s CHANNEL %s', message.from_user.id, message.from_user.first_name, message.from_user.username, message.text)
     channel = message.text.strip()
 
@@ -177,6 +242,8 @@ async def process_channel(message: types.Message, state: FSMContext):
 
 @dp.message(Data.waiting_for_limit)
 async def process_limit(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    lang = data.get("lang")
     # Удаляем старое сообщение
     await msg_delete(message, state)
     data = await state.get_data()
@@ -213,9 +280,27 @@ async def process_prompt(message: types.Message, state: FSMContext):
 
 
 # --- Utilits ---
+async def select_lang(message: types.Message, state: FSMContext):
+    msg = await message.answer(
+        MESSAGES["select_lang"],
+        reply_markup=get_lang_keyboard()
+    )
+    await state.update_data(period_message_id=msg.message_id, channel_error=False)
+
+async def select_option(message: types.Message, state: FSMContext):
+    await msg_delete(message, state)
+    data = await state.get_data()
+    lang= data.get("lang")
+    msg = await message.answer(
+            MESSAGES['start'][lang],
+            reply_markup=get_main_keyboard(lang)
+        )
+    await state.update_data(period_message_id=msg.message_id)
+
 
 async def select_channel(message: types.Message, state: FSMContext):
     data = await state.get_data()
+    lang = data.get("lang")
     if not data.get("prompt"):  #Удаляем выбор своего промпта
         await msg_delete(message, state)
     if data.get('type') == "one_channel":
@@ -228,6 +313,7 @@ async def select_channel(message: types.Message, state: FSMContext):
 
 async def select_limit(message: types.Message, state: FSMContext):
     data = await state.get_data()
+    lang = data.get("lang")
     if data.get("channel_error"):
         # Удаляем старое сообщение
         await msg_delete(message, state)
@@ -239,6 +325,7 @@ async def select_limit(message: types.Message, state: FSMContext):
 
 async def select_prompt(message: types.Message, state: FSMContext):
     data = await state.get_data()
+    lang = data.get("lang")
     prompt = data.get("prompt")
     await msg_delete(message, state)
     if not prompt:
@@ -253,10 +340,11 @@ async def process_save_posts(message: types.Message, state: FSMContext):
 
     posts = {}
     data = await state.get_data()
+    lang = data.get("lang")
     type_prompt = data.get('type')
     channel = data.get('channel')
     limit = data.get('limit')
-    channel_list = CHANNEL_LIST[lang] if type_prompt == 'general' else [channel,]
+    channel_list = CHANNEL_LIST if type_prompt == 'general' else [channel,]
     msg = await message.answer(MESSAGES["loading"]["download"][lang])
     await state.update_data(period_message_id=msg.message_id)
     for channel in channel_list:
@@ -264,6 +352,7 @@ async def process_save_posts(message: types.Message, state: FSMContext):
             continue
         try:
             # Скачиваем посты
+            #print(channel)
             posts[channel] = await download_telegram_posts(channel, limit)
 
             # Сохраняем в файл
@@ -307,7 +396,8 @@ async def download_telegram_posts(channel, limit):
     end_date = end.date()+ datetime.timedelta(days=1)
     start = end_date - datetime.timedelta(days=limit)
     async with client:
-        async for message in client.iter_messages(channel, offset_date=end):
+        channel_entity = await client.get_entity(channel)
+        async for message in client.iter_messages(channel_entity, offset_date=end):
 
             if message.date.date() < start:
                 break
@@ -324,6 +414,8 @@ async def download_telegram_posts(channel, limit):
 
 
 async def send_to_ai(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    lang = data.get("lang")
     msg = await message.answer(MESSAGES["loading"]["answer"][lang], reply_markup=ReplyKeyboardRemove())
     await state.update_data(period_message_id=msg.message_id)
     end_date = datetime.datetime.now().date()
@@ -366,6 +458,10 @@ async def send_to_ai(message: types.Message, state: FSMContext):
         logger_general.error('USER %s %s %s DS_ERROR %s', message.from_user.id, message.from_user.first_name, message.from_user.username, e)
     await state.set_state(Data.waiting_for_command)
 
+
+
+
+
 async def msg_delete(message: types.Message, state: FSMContext):
     data = await state.get_data()
     # Удаляем старое сообщение
@@ -378,12 +474,9 @@ async def msg_delete(message: types.Message, state: FSMContext):
 
 
 # Запуск бота
-async def main(client_bot, bot, language):
-    global lang
+async def main(client_bot, bot):
     global client
     client = client_bot
-    lang = language
-    print(lang)
     await client.connect()
     me = await client.get_me()
     print('START_APP', me.first_name)

@@ -46,6 +46,9 @@ PROMPTS = {
         Расскажи о слабых и сильных сторонах канала. Если канал о продукте, сервисе или активе, расскажи о нем и дай прогноз на будущее.
         """
     ,
+    "trending_tokens": """
+        Какие новые токены и свежие проекты сейчас на хайпе. Где возможно, используй ссылки с текстом-анкором.
+        """,
     "addition": (
         "В тексте твоего ответа используй только следующие HTML-теги: <b>, <i>, <a>, <u>,  •, <code>."
         "В тексте ответа можешь использовать эмоджи, где это уместно, но не перегружай текст."
@@ -54,11 +57,20 @@ PROMPTS = {
 }
 
 MESSAGES = {
+    "select_lang": "🌍Выбери язык/Choose a language",
+    "lang": {
+        "kbd": {
+            "ru" : "RU",
+            "en": "EN"
+        },
+
+    },
     "start": {
         "ru":
             (
             "🖐️Привет! Я ИИ-бот. Помогу тебе с анализом <b>Telegram-каналов</b>.\n"
             "Вот что я умею: \n"
+            "📌 <b>Трендовые токены</b> – соберу информацию о быстрорастущих и обсуждаемых токенах.\n"
             "📌 <b>Дайджест криптоновостей</b> – соберу самое важное по тематике криптовалют за день.\n"
             "📌 <b>Прогноз рынка криптовалют</b> – дам прогноз рынка на основе новостей.\n"
             "📌 <b>Дайджест выбранного канала</b> – соберу самое важное по указанному каналу за выбранный период.\n"
@@ -71,6 +83,7 @@ MESSAGES = {
             (
             "🖐️ Hi! I'm an AI bot. I'll help you analyze <b>Telegram channels</b>.\n"
             "Here's what I can do: \n"
+            "📌 <b>Trending Tokens</b> – I'll gather information about hot tokens & fresh projects gaining momentum.\n"
             "📌 <b>Crypto News Digest</b> – I'll gather the most important cryptocurrency news of the day.\n"
             "📌 <b>Crypto Market Forecast</b> – I'll give a market prediction based on the news.\n"
             "📌 <b>Digest for a Selected Channel</b> – I'll gather the most important content from a channel "
@@ -92,6 +105,10 @@ MESSAGES = {
         "general_forecast": {
             "ru": "Прогноз рынка криптовалют",
             "en": "Crypto Market Forecast"
+        },
+        "trending_tokens": {
+            "ru": "Трендовые токены",
+            "en": "Trending Tokens"
         },
         "general_other": {
             "ru": "Свой промпт по криптоновостям",
@@ -209,8 +226,26 @@ MESSAGES = {
     "https://t.me/crypto_sekta",
     "https://t.me/crypto_solyanka"
 ]"""
-CHANNEL_LIST = {
-    "ru": [
+CHANNEL_LIST = [
+        "@cointelegraph",
+        "@RBCCrypto",
+        "@Defiscamcheck",
+        "@DeCenter",
+        "@cryptodaily",
+        "@Coin_Post",
+        "@cryptopizza_news",
+        "@blockchaingerman",
+        "@Coins",
+        "@bfxannouncements",
+        "@crypto_sekta",
+        "@crypto_solyanka",
+        "@blockchainwhispersbaby",
+        "@binance_announcements",
+        "@CoinMarketCapAnnouncements",
+        "@coinmarket",
+        "@money"
+        ]
+'''"ru": [
         "@cointelegraph",
         "@RBCCrypto",
         "@Defiscamcheck",
@@ -231,5 +266,4 @@ CHANNEL_LIST = {
         "@CoinMarketCapAnnouncements",
         "@coinmarket",
         "@money"
-        ]
-}
+        ]'''
