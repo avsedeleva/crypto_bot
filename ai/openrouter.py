@@ -1,8 +1,6 @@
-import asyncio
+
 import datetime
 import os
-
-import requests
 import json
 
 from aiogram.client.session import aiohttp
