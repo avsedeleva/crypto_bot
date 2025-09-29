@@ -486,12 +486,12 @@ async def send_to_ai(message: types.Message, state: FSMContext):
                 parse_mode='Markdown'
             )
         if len(deepseek_response) < 4000:
-            await message.answer(f"\n{deepseek_response}", parse_mode='HTML')
+            await message.answer(f"\n{deepseek_response}", parse_mode='HTML', disable_web_page_preview=True)
         else:
             answers = await split_by_paragraphs_answer(deepseek_response)
             for ans in answers:
                 print(ans)
-                await message.answer(f"\n{ans}", parse_mode='HTML')
+                await message.answer(f"\n{ans}", parse_mode='HTML', disable_web_page_preview= True)
 
     except Exception as e:
         await msg_delete(msg, state)
