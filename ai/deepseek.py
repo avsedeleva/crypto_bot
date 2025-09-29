@@ -40,6 +40,7 @@ async def split_messages(data):
                     start_date = date
                     #print(start_date)
     print('is_all_inclusive', is_all_inclusive)
+    print("len_current_data", len_current_data)
     return {'messages': split_messages_dict, "start_date": start_date, "is_all_inclusive": is_all_inclusive }
 
 async def get_deepseek_response(system_prompt: str, user_prompt: str) -> str:

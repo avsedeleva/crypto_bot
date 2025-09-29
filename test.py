@@ -1,3 +1,4 @@
+import codecs
 import re
 # -*- coding: utf-8 -*-
 a = ("<br>• BTC торгуется около $116 000, доминация — 58,24%. Альткоины показывают смешанную динамику. "
@@ -131,4 +132,47 @@ def simple_html_to_text(html):
 
     return text.strip()
 
-print(simple_html_to_text(c))
+#print(simple_html_to_text(c))
+def correct_text_decoding(text):
+    """Правильное декодирование текста с UTF-8 байтами"""
+
+
+    final_text = re.sub(r'\\u[0-9a-fA-F]{4}', '', text)
+
+    return final_text
+
+
+def clean_text_completely(text):
+    """
+    Полная очистка текста - УДАЛЯЕТ все мешающие символы
+    """
+    # 1. Удаляем эмодзи (\ud83c\uddf7\ud83c\uddfa)
+    text = re.sub(r'\\ud[83cdef][0-9a-fA-F]{3}', '', text)
+
+    # 2. Удаляем ** и другое форматирование
+    text = re.sub(r'[*_~`]+', ' ', text)
+
+    # 3. Заменяем кириллические Unicode символы
+    def decode_cyrillic(match):
+        hex_code = match.group(1)
+        try:
+            # Диапазон кириллических символов
+            code_point = int(hex_code, 16)
+            if 0x0400 <= code_point <= 0x04FF:
+                return chr(code_point)
+            else:
+                return ''  # Удаляем не-кириллические
+        except:
+            return ''
+
+    text = re.sub(r'\\u([0-9a-fA-F]{4})', decode_cyrillic, text)
+
+    # 4. Удаляем оставшиеся специальные символы
+    text = re.sub(r'[^\w\s\.,!?;:()\-]', ' ', text)
+
+    # 5. Нормализуем пробелы
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    return text
+abc =  "\u00e2\u009a\u00a1\u00ef\u00b8\u008f LATEST: Binance launched a \u00e2\u0080\u009ccrypto-as-a-service\u00e2\u0080\u009d solution for banks, brokerages, and exchanges, with first adopters starting Sept 30.\n\nRead more: [ct.com\n](https://cointelegraph.com/)\n[News |](https://cointelegraph.com/) [Markets |](https://cointelegraph.com/markets) [YouTube](https://youtube.com/@cointelegraph?si=4ge6Mqs-_0fvJCM2)"
+print(clean_text_completely(abc))

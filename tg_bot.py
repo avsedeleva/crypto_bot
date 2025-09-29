@@ -1,3 +1,6 @@
+import codecs
+import re
+
 from dotenv import load_dotenv
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, Message
 from aiogram import Dispatcher, types, F
@@ -8,7 +11,8 @@ import os
 import json
 import datetime
 
-from deepseek import fetch_deepseek_response_prompt
+from ai.deepseek import fetch_deepseek_response_prompt
+from ai.openrouter import fetch_openrouter_response_prompt
 from logger.logger import Logger
 from settings import CHANNEL_LIST, MESSAGES, PROMPTS
 from utilits import split_by_paragraphs_answer, simple_html_to_text
@@ -160,7 +164,7 @@ async def general_forecast(message: types.Message, state: FSMContext):
 @dp.message(LanguageFilter("trending_tokens"))
 async def trend_tokens(message: types.Message, state: FSMContext):
     logger_general.info('USER %s %s %s TRENDING_TOKENS', message.from_user.id, message.from_user.first_name, message.from_user.username)
-    logger_prompt.info('USER %s %s %s TRENDING_TOKENS_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, PROMPTS["general_forecast"])
+    logger_prompt.info('USER %s %s %s TRENDING_TOKENS_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, PROMPTS["trending_tokens"])
     await msg_delete(message, state)
     await state.update_data(prompt=PROMPTS["trending_tokens"], type='general', period_message_id=message.message_id)
     await select_channel(message=message, state=state)
@@ -390,6 +394,41 @@ async def process_save_posts(message: types.Message, state: FSMContext):
     return await send_to_ai(message, state)
 
 
+
+async def decode_msg(text):
+    """
+    Полная очистка текста - УДАЛЯЕТ все мешающие символы
+    """
+    # 1. Удаляем эмодзи (\ud83c\uddf7\ud83c\uddfa)
+    text = re.sub(r'\\ud[83cdef][0-9a-fA-F]{3}', '', text)
+
+    # 2. Удаляем ** и другое форматирование
+    text = re.sub(r'[*_~`]+', ' ', text)
+
+    # 3. Заменяем кириллические Unicode символы
+    def decode_cyrillic(match):
+        hex_code = match.group(1)
+        try:
+            # Диапазон кириллических символов
+            code_point = int(hex_code, 16)
+            if 0x0400 <= code_point <= 0x04FF:
+                return chr(code_point)
+            else:
+                return ''  # Удаляем не-кириллические
+        except:
+            return ''
+
+    text = re.sub(r'\\u([0-9a-fA-F]{4})', decode_cyrillic, text)
+
+    # 4. Удаляем оставшиеся специальные символы
+    text = re.sub(r'[^\w\s\.,!?;:()\-]', ' ', text)
+
+    # 5. Нормализуем пробелы
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    return text
+
+
 async def download_telegram_posts(channel, limit):
     posts = []
     end = datetime.datetime.now(datetime.timezone.utc)
@@ -402,9 +441,12 @@ async def download_telegram_posts(channel, limit):
             if message.date.date() < start:
                 break
             if start <= message.date.date() <= end_date and message.text != '':
+
+                msg = await decode_msg(message.text) if message.text else ''
+
                 posts.append({
                     'date': message.date.isoformat(),
-                    'text': message.text,
+                    'text': msg,
                     'link': f'https://t.me/{channel[1:]}/{message.id}'
                     #'views': message.views if hasattr(message, 'views') else None,
                     #'media': bool(message.media),
@@ -423,14 +465,14 @@ async def send_to_ai(message: types.Message, state: FSMContext):
     await state.update_data(addition_prompt=PROMPTS["addition"].format(language=language))
     data = await state.get_data()
     try:
-        deepseek_response = await fetch_deepseek_response_prompt(data)
+        deepseek_response = await fetch_openrouter_response_prompt(data)
         logger_answer.info('USER %s %s %s DS_ANSWER %s', message.from_user.id, message.from_user.first_name, message.from_user.username, deepseek_response)
         start_date = deepseek_response['start_date']
         days_count = end_date - start_date + datetime.timedelta(days=1)
         is_all_inclusive = deepseek_response['is_all_inclusive']
         print('is_all_inclusive', is_all_inclusive)
-        #deepseek_response = await simple_html_to_text(deepseek_response['answer'])
-        deepseek_response = deepseek_response['answer']
+        deepseek_response = await simple_html_to_text(deepseek_response['answer'])
+        #deepseek_response = deepseek_response['answer']
         #print(deepseek_response)
         logger_answer.info('USER %s %s %s FORMAT_ANSWER %s', message.from_user.id, message.from_user.first_name, message.from_user.username, deepseek_response)
 
