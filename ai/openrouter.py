@@ -2,7 +2,10 @@ import asyncio
 import datetime
 import os
 import json
+import base64
+from io import BytesIO
 
+import httpx
 from aiogram.client.session import aiohttp
 
 from logger.logger import Logger
@@ -114,19 +117,84 @@ async def get_open_router_response(system_prompt: str, user_prompt: str) -> str:
       logger_general.error('ERROR LLM %s ', e)
       return f"Произошла ошибка: {str(e)}"
 
+async def get_open_router_image(user_prompt: str) -> str:
+  url = "https://openrouter.ai/api/v1/chat/completions"
+  headers = {
+          "Authorization": f"Bearer {os.environ.get('OPENROUTER_API_KEY')}",
+          "Content-Type": "application/json",
+            "HTTP-Referer": "test",  # Optional. Site URL for rankings on openrouter.ai.
+            "X-Title": "test",  # Optional. Site title for rankings on openrouter.ai.
+          }
+
+  messages = [
+  {"role": "system", "content": f"Сгенерируй картинку. Пропорции картинки 16:9. Слова на картинке английские. В правый верхний угол изображения вставь название канала @GenAI_crypto_bot. На картинке должна быть отражена суть постов ниже:\n {user_prompt}"},
+  # {"role": "user", "content": user_prompt}
+  ]
+
+  payload = {
+  "model": "google/gemini-2.5-flash-image-preview", #"qwen/qwen3-vl-235b-a22b-instruct", #"deepseek/deepseek-v3.2-exp", #"qwen/qwen3-vl-235b-a22b-instruct",#"google/gemini-2.5-pro", #"openrouter/auto",
+  "temperature": 0.1,
+  "messages": messages,
+  "max_tokens": 20000,
+  'provider': {
+    'sort': 'latency'
+  }
+  }
+  print(messages)
+
+  async with aiohttp.ClientSession() as session:
+    if 1==1:
+      async with session.post(
+              url,
+              headers=headers,
+              json=payload,
+              # timeout=aiohttp.ClientTimeout(total=60)  # Таймаут 60 сек
+      ) as response:
+
+        if response.status == 200:
+
+
+            data = await response.json()  # Парсим JSON
+
+
+
+
+            # Извлекаем base64 изображение из ответа:cite[1]
+            image_data = data['choices'][0]['message']['images'][0]['image_url']['url']
+
+            # Убираем префикс data URL чтобы получить чистый base64:cite[2]
+            base64_string = image_data.split(',')[1]
+
+            # Декодируем base64 в бинарные данные
+            image_bytes = base64.b64decode(base64_string)
+            #print(image_bytes)
+            return image_bytes
+        else:
+          error_msg = await response.text()
+          logger_general.error('ERROR LLM код %s ошибка %s', response.status, error_msg)
+          return f"Ошибка API (код {response.status}): {error_msg}"
+    '''except asyncio.TimeoutError:
+      logger_general.error('ERROR LLM %s ', "TimeoutError")
+      return "Превышено время ожидания ответа от DeepSeek."
+    except Exception as e:
+      logger_general.error('ERROR LLM %s ', e)
+      return f"Произошла ошибка: {str(e)}"'''
+
 
 async def fetch_openrouter_response_prompt(data) -> dict:
+  #image = None if not data['need_image'] else await get_open_image("Танцующий робот")
   prompt = data['prompt']
   addition_prompt = data['addition_prompt']
   split_messages_dict = await split_messages(data['posts'])
   #print(json.dumps(split_messages_dict['messages'], indent=4))
   json_data = json.dumps(split_messages_dict['messages'], ensure_ascii=False, indent=4)
-  print(json_data)
   system_prompt = f"{prompt}{addition_prompt}"
   user_prompt = f"Данные для анализа (JSON): {json_data}"
   answer = await get_open_router_response(system_prompt, user_prompt)
+  image = None if not data['need_image'] else await get_open_router_image(answer)
   return {
     'answer': answer,
     'start_date': split_messages_dict['start_date'],
-    'is_all_inclusive': split_messages_dict['is_all_inclusive']
+    'is_all_inclusive': split_messages_dict['is_all_inclusive'],
+    'image': image
   }

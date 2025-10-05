@@ -1,8 +1,9 @@
 import codecs
 import re
+from io import BytesIO
 
 from dotenv import load_dotenv
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, Message
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, Message, BufferedInputFile
 from aiogram import Dispatcher, types, F
 from aiogram.filters import Command, BaseFilter
 from aiogram.fsm.context import FSMContext
@@ -15,7 +16,7 @@ from ai.deepseek import fetch_deepseek_response_prompt
 from ai.openrouter import fetch_openrouter_response_prompt
 from logger.logger import Logger
 from settings import CHANNEL_LIST, MESSAGES, PROMPTS
-from utilits import split_by_paragraphs_answer, simple_html_to_text
+from utilits import split_by_paragraphs_answer, simple_html_to_text, split_by_paragraphs_answer_img
 
 load_dotenv()
 
@@ -299,7 +300,7 @@ async def select_option(message: types.Message, state: FSMContext):
             MESSAGES['start'][lang],
             reply_markup=get_main_keyboard(lang)
         )
-    await state.update_data(period_message_id=msg.message_id)
+    await state.update_data(period_message_id=msg.message_id, need_image=True)
 
 
 async def select_channel(message: types.Message, state: FSMContext):
@@ -468,6 +469,11 @@ async def send_to_ai(message: types.Message, state: FSMContext):
         deepseek_response = await fetch_openrouter_response_prompt(data)
         logger_answer.info('USER %s %s %s DS_ANSWER %s', message.from_user.id, message.from_user.first_name, message.from_user.username, deepseek_response)
         start_date = deepseek_response['start_date']
+        image = deepseek_response['image']
+        image_file = BufferedInputFile(
+            file=image,
+            filename="generated_image.png"
+        )
         days_count = end_date - start_date + datetime.timedelta(days=1)
         is_all_inclusive = deepseek_response['is_all_inclusive']
         print('is_all_inclusive', is_all_inclusive)
@@ -485,13 +491,48 @@ async def send_to_ai(message: types.Message, state: FSMContext):
                 MESSAGES["attention"]["period"][lang].format(days=days_count.days),
                 parse_mode='Markdown'
             )
-        if len(deepseek_response) < 4000:
-            await message.answer(f"\n{deepseek_response}", parse_mode='HTML', disable_web_page_preview=True)
+        deepseek_response =MESSAGES["title"][lang] + deepseek_response
+        if len(deepseek_response) < 980:
+            # Создаем BytesIO объект
+            if image:
+                print('gtxfnf. rfhnbyre')
+
+                #image_buffer = BytesIO(image)
+                #image_buffer.name = 'image.png'  # Указываем имя файла
+
+                # Отправляем изображение
+                await message.answer_photo(
+                    photo=image_file,
+                    caption=f"\n{deepseek_response}",
+                    parse_mode='HTML',
+                    disable_web_page_preview=True,
+            )
+            else:
+                await message.answer(f"\n{deepseek_response}", parse_mode='HTML', disable_web_page_preview=True, )
         else:
-            answers = await split_by_paragraphs_answer(deepseek_response)
-            for ans in answers:
-                print(ans)
-                await message.answer(f"\n{ans}", parse_mode='HTML', disable_web_page_preview= True)
+            if image:
+                answers = await split_by_paragraphs_answer_img(deepseek_response)
+
+                has_image = False
+                for ans in answers:
+                    if image and not has_image:
+                        print('gtxfnf. rfhnbyre')
+
+                        # Отправляем изображение
+                        await message.answer_photo(
+                            photo=image_file,
+                            caption=f"\n{ans}",
+                            parse_mode='HTML',
+                            disable_web_page_preview=True,
+                        )
+                        print(ans)
+                        has_image = True
+                    else:
+                        await message.answer(f"\n{ans}", parse_mode='HTML', disable_web_page_preview=True)
+            else:
+                answers = await split_by_paragraphs_answer(deepseek_response)
+                for ans in answers:
+                    await message.answer(f"\n{ans}", parse_mode='HTML', disable_web_page_preview= True)
 
     except Exception as e:
         await msg_delete(msg, state)

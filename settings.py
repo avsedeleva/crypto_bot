@@ -209,6 +209,10 @@ MESSAGES = {
     "error": {
         "ru": "❌ Произошла ошибка при обработке запроса. Попробуйте снова.",
         "en": "❌ An error occurred while processing your request. Please try again"
+    },
+    "title": {
+        "ru": "<b><code>@GenAI_crypto_bot</code></b>\n────────────\n",
+        "en": "<b><code>@GenAI_crypto_bot</code></b>\n────────────\n"
     }
 }
 

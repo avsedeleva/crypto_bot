@@ -55,3 +55,21 @@ async def split_by_paragraphs_answer(text: str, max_length=3800) -> list[str]:
 
     return chunks
 
+async def split_by_paragraphs_answer_img(text: str, max_length=980) -> list[str]:
+    paragraphs = text.split('\n')
+    chunks = []
+    current_chunk = ""
+
+
+    for paragraph in paragraphs:
+        if len(current_chunk) + len(paragraph) + 2 > max_length:  # +2 для '\n\n'
+            chunks.append(current_chunk.strip())
+            max_length = 3800
+            current_chunk = paragraph
+        else:
+            current_chunk += f"\n{paragraph}" if current_chunk else paragraph
+
+    if current_chunk:
+        chunks.append(current_chunk.strip())
+
+    return chunks
