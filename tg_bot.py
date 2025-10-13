@@ -56,12 +56,13 @@ class LanguageFilter(BaseFilter):
 def get_main_keyboard(lang):
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text=MESSAGES["kbd"]["trending_tokens"][lang]),KeyboardButton(text=MESSAGES["kbd"]["general_digest"][lang])],
-            [KeyboardButton(text=MESSAGES["kbd"]["general_forecast"][lang]), KeyboardButton(text=MESSAGES["kbd"]["general_other"][lang])],
+            [KeyboardButton(text=MESSAGES["kbd"]["trending_tokens"][lang]),],
+            [KeyboardButton(text=MESSAGES["kbd"]["general_digest"][lang]), KeyboardButton(text=MESSAGES["kbd"]["general_forecast"][lang]), ],
             [KeyboardButton(text=MESSAGES["kbd"]["digest"][lang]), KeyboardButton(text=MESSAGES["kbd"]["analysis"][lang])],
-            [KeyboardButton(text=MESSAGES["kbd"]["other"][lang])],
+            [KeyboardButton(text=MESSAGES["kbd"]["general_other"][lang]), KeyboardButton(text=MESSAGES["kbd"]["other"][lang])],
+            [KeyboardButton(text=MESSAGES["kbd"]["twitter"][lang]),]
 
-        ],
+             ],
         resize_keyboard=True,
         input_field_placeholder=MESSAGES["kbd"]["input_field"][lang]
 
@@ -77,13 +78,24 @@ def get_lang_keyboard():
 
 )
 
+def get_img_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text='ДА'), KeyboardButton(text='НЕТ')],
+
+        ],
+        resize_keyboard=True,
+
+)
+
+
 # Обработчик команды /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
     # Удаляем старое сообщение
     await msg_delete(message, state)
     await state.clear()
-
+    await state.update_data(model='no_twitter', need_image=False)
     logger_general.info('USER %s %s %s START', message.from_user.id, message.from_user.first_name, message.from_user.username)
     await message.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
     await select_lang(message, state)
@@ -103,7 +115,7 @@ async def cmd_command(message: types.Message, state: FSMContext):
     # Удаляем старое сообщение
     await msg_delete(message, state)
     await state.clear()
-
+    await state.update_data(model='no_twitter', need_image=False)
     logger_general.info('USER %s %s %s MENU', message.from_user.id, message.from_user.first_name, message.from_user.username)
     await message.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
     await select_lang(message, state)
@@ -123,22 +135,40 @@ async def ru(message: types.Message, state: FSMContext):
     lang = "ru"
     logger_general.info('USER %s %s %s RU', message.from_user.id, message.from_user.first_name, message.from_user.username)
     #logger_prompt.info('USER %s %s %s GENERAL_DIGEST_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, PROMPTS["general_digest"])
-    print(lang)
+
     await message.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
     await msg_delete(message, state)
     await state.update_data(lang=lang)
+    if message.from_user.id in [8320319465, 97592799]:
+        return await select_img(message=message, state=state)
     await select_option(message=message, state=state)
 
 
 @dp.message(F.text == MESSAGES["lang"]["kbd"]["en"])
 async def en(message: types.Message, state: FSMContext):
     lang = "en"
-    print(lang)
     logger_general.info('USER %s %s %s EN', message.from_user.id, message.from_user.first_name, message.from_user.username)
     #logger_prompt.info('USER %s %s %s GENERAL_DIGEST_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, PROMPTS["general_digest"])
     await message.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
     await msg_delete(message, state)
     await state.update_data(lang=lang)
+    if message.from_user.id in [8320319465, 97592799]:
+        return await select_img(message=message, state=state)
+    await select_option(message=message, state=state)
+
+@dp.message(F.text == 'ДА')
+async def yes_img(message: types.Message, state: FSMContext):
+    #logger_prompt.info('USER %s %s %s GENERAL_DIGEST_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, PROMPTS["general_digest"])
+    await message.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+    await msg_delete(message, state)
+    await state.update_data(need_image=True)
+    await select_option(message=message, state=state)
+
+@dp.message(F.text == 'НЕТ')
+async def no_img(message: types.Message, state: FSMContext):
+    #logger_prompt.info('USER %s %s %s GENERAL_DIGEST_PROMPT %s', message.from_user.id, message.from_user.first_name, message.from_user.username, PROMPTS["general_digest"])
+    await message.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+    await msg_delete(message, state)
     await select_option(message=message, state=state)
 
 
@@ -207,6 +237,13 @@ async def prompt(message: types.Message, state: FSMContext):
     await msg_delete(message, state)
     await state.update_data(prompt=None, type='one_channel', period_message_id=message.message_id)
     await select_channel(message=message, state=state)
+
+@dp.message(LanguageFilter("twitter"))
+async def twitter(message: types.Message, state: FSMContext):
+    logger_general.info('USER %s %s %s TWITTER', message.from_user.id, message.from_user.first_name, message.from_user.username)
+    await msg_delete(message, state)
+    await state.update_data(prompt=None, type='twitter', period_message_id=message.message_id, model='twitter')
+    await select_prompt(message, state)
 
 
 # --- Опросная часть ---
@@ -292,6 +329,13 @@ async def select_lang(message: types.Message, state: FSMContext):
     )
     await state.update_data(period_message_id=msg.message_id, channel_error=False)
 
+async def select_img(message: types.Message, state: FSMContext):
+    msg = await message.answer(
+        MESSAGES["select_img"],
+        reply_markup=get_img_keyboard()
+    )
+    await state.update_data(period_message_id=msg.message_id)
+
 async def select_option(message: types.Message, state: FSMContext):
     await msg_delete(message, state)
     data = await state.get_data()
@@ -300,7 +344,7 @@ async def select_option(message: types.Message, state: FSMContext):
             MESSAGES['start'][lang],
             reply_markup=get_main_keyboard(lang)
         )
-    await state.update_data(period_message_id=msg.message_id, need_image=True)
+    await state.update_data(period_message_id=msg.message_id)
 
 
 async def select_channel(message: types.Message, state: FSMContext):
@@ -467,7 +511,7 @@ async def send_to_ai(message: types.Message, state: FSMContext):
     data = await state.get_data()
     try:
         deepseek_response = await fetch_openrouter_response_prompt(data)
-        logger_answer.info('USER %s %s %s DS_ANSWER %s', message.from_user.id, message.from_user.first_name, message.from_user.username, deepseek_response)
+        logger_answer.info('USER %s %s %s IMG %s DS_ANSWER %s', message.from_user.id, message.from_user.first_name, message.from_user.username, data.get('need_image'), deepseek_response['answer'])
         start_date = deepseek_response['start_date']
         image = deepseek_response['image']
         image_file = BufferedInputFile(
@@ -495,7 +539,7 @@ async def send_to_ai(message: types.Message, state: FSMContext):
         if len(deepseek_response) < 980:
             # Создаем BytesIO объект
             if image:
-                print('gtxfnf. rfhnbyre')
+                print('с картинкой')
 
                 #image_buffer = BytesIO(image)
                 #image_buffer.name = 'image.png'  # Указываем имя файла
@@ -516,7 +560,7 @@ async def send_to_ai(message: types.Message, state: FSMContext):
                 has_image = False
                 for ans in answers:
                     if image and not has_image:
-                        print('gtxfnf. rfhnbyre')
+                        print('с картинкой')
 
                         # Отправляем изображение
                         await message.answer_photo(

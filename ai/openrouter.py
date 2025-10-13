@@ -71,7 +71,7 @@ async def split_messages(data):
   print('is_all_inclusive', is_all_inclusive)
   return {'messages': split_messages_dict, "start_date": start_date, "is_all_inclusive": is_all_inclusive}
 
-async def get_open_router_response(system_prompt: str, user_prompt: str) -> str:
+async def get_open_router_response(system_prompt: str, user_prompt: str, model) -> str:
   url = "https://openrouter.ai/api/v1/chat/completions"
   headers = {
           "Authorization": f"Bearer {os.environ.get('OPENROUTER_API_KEY')}",
@@ -79,15 +79,18 @@ async def get_open_router_response(system_prompt: str, user_prompt: str) -> str:
             "HTTP-Referer": "test",  # Optional. Site URL for rankings on openrouter.ai.
             "X-Title": "test",  # Optional. Site title for rankings on openrouter.ai.
           }
-
-  messages = [
-  {"role": "system", "content": system_prompt},
-  {"role": "user", "content": user_prompt}
-  ]
+  model = "qwen/qwen3-vl-235b-a22b-instruct:online" if model!='twitter' else 'x-ai/grok-4-fast:online'
+  messages = [{"role": "system", "content": system_prompt},]
+  if model != 'twitter':
+    messages = [
+    {"role": "system", "content": system_prompt},
+    {"role": "user", "content": user_prompt}
+    ]
 
   payload = {
-  "model": "qwen/qwen3-vl-235b-a22b-instruct", #"qwen/qwen3-vl-235b-a22b-instruct", #"deepseek/deepseek-v3.2-exp", #"qwen/qwen3-vl-235b-a22b-instruct",#"google/gemini-2.5-pro", #"openrouter/auto",
+  "model": model, #"qwen/qwen3-vl-235b-a22b-instruct", #"deepseek/deepseek-v3.2-exp", #"qwen/qwen3-vl-235b-a22b-instruct",#"google/gemini-2.5-pro", #"openrouter/auto",
   "temperature": 0.1,
+  #"plugins": ["web"],
   "messages": messages,
   "max_tokens": 20000,
   'provider': {
@@ -102,6 +105,7 @@ async def get_open_router_response(system_prompt: str, user_prompt: str) -> str:
               url,
               headers=headers,
               json=payload,
+              proxy=proxy
               # timeout=aiohttp.ClientTimeout(total=60)  # Таймаут 60 сек
       ) as response:
         if response.status == 200:
@@ -141,7 +145,7 @@ async def get_open_router_image(user_prompt: str) -> str:
     'sort': 'latency'
   }
   }
-  print(messages)
+
 
   async with aiohttp.ClientSession() as session:
     try:
@@ -158,9 +162,6 @@ async def get_open_router_image(user_prompt: str) -> str:
 
             data = await response.json()  # Парсим JSON
 
-
-
-
             # Извлекаем base64 изображение из ответа:cite[1]
             image_data = data['choices'][0]['message']['images'][0]['image_url']['url']
 
@@ -173,18 +174,19 @@ async def get_open_router_image(user_prompt: str) -> str:
             return image_bytes
         else:
           error_msg = await response.text()
-          logger_general.error('ERROR LLM код %s ошибка %s', response.status, error_msg)
+          logger_general.error('ERROR LLM IMG код %s ошибка %s', response.status, error_msg)
           return f"Ошибка API (код {response.status}): {error_msg}"
     except asyncio.TimeoutError:
-      logger_general.error('ERROR LLM %s ', "TimeoutError")
+      logger_general.error('ERROR LLM IMG %s ', "TimeoutError")
       return "Превышено время ожидания ответа от DeepSeek."
     except Exception as e:
-      logger_general.error('ERROR LLM %s ', e)
+      logger_general.error('ERROR LLM IMG %s ', e)
       return f"Произошла ошибка: {str(e)}"
 
 
 async def fetch_openrouter_response_prompt(data) -> dict:
   #image = None if not data['need_image'] else await get_open_image("Танцующий робот")
+  model = data['model']
   prompt = data['prompt']
   addition_prompt = data['addition_prompt']
   split_messages_dict = await split_messages(data['posts'])
@@ -192,8 +194,9 @@ async def fetch_openrouter_response_prompt(data) -> dict:
   json_data = json.dumps(split_messages_dict['messages'], ensure_ascii=False, indent=4)
   system_prompt = f"{prompt}{addition_prompt}"
   user_prompt = f"Данные для анализа (JSON): {json_data}"
-  answer = await get_open_router_response(system_prompt, user_prompt)
-  image = None if not data['need_image'] else await get_open_router_image(answer)
+  answer = await get_open_router_response(system_prompt, user_prompt, model)
+  #print('for img', answer)
+  image = None if not data.get('need_image') else await get_open_router_image(answer)
   return {
     'answer': answer,
     'start_date': split_messages_dict['start_date'],

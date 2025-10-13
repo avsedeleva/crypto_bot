@@ -61,6 +61,7 @@ PROMPTS = {
 
 MESSAGES = {
     "select_lang": "🌍Выбери язык/Choose a language",
+    'select_img': "Нужна картинка (для админов)?",
     "lang": {
         "kbd": {
             "ru" : "RU",
@@ -128,6 +129,10 @@ MESSAGES = {
         "other": {
             "ru": "Свой промпт по каналу",
             "en": "Custom Channel Prompt"
+        },
+        "twitter": {
+            "ru": "Свой промпт по twitter",
+            "en": "Custom Twitter Prompt"
         },
         "input_field":{
             "ru": "Выберите опцию...",
