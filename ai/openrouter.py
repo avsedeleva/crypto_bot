@@ -9,6 +9,7 @@ import httpx
 from aiogram.client.session import aiohttp
 
 from logger.logger import Logger
+from settings import proxy
 
 logger_manager = Logger()
 logger_general= logger_manager.get_logger_general("ERROR")
@@ -143,11 +144,12 @@ async def get_open_router_image(user_prompt: str) -> str:
   print(messages)
 
   async with aiohttp.ClientSession() as session:
-    if 1==1:
+    try:
       async with session.post(
               url,
               headers=headers,
               json=payload,
+              proxy=proxy
               # timeout=aiohttp.ClientTimeout(total=60)  # Таймаут 60 сек
       ) as response:
 
@@ -173,12 +175,12 @@ async def get_open_router_image(user_prompt: str) -> str:
           error_msg = await response.text()
           logger_general.error('ERROR LLM код %s ошибка %s', response.status, error_msg)
           return f"Ошибка API (код {response.status}): {error_msg}"
-    '''except asyncio.TimeoutError:
+    except asyncio.TimeoutError:
       logger_general.error('ERROR LLM %s ', "TimeoutError")
       return "Превышено время ожидания ответа от DeepSeek."
     except Exception as e:
       logger_general.error('ERROR LLM %s ', e)
-      return f"Произошла ошибка: {str(e)}"'''
+      return f"Произошла ошибка: {str(e)}"
 
 
 async def fetch_openrouter_response_prompt(data) -> dict:

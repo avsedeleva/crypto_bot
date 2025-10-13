@@ -274,3 +274,5 @@ CHANNEL_LIST = [
         "@coinmarket",
         "@money"
         ]'''
+
+proxy = "http://L0WXPq:R9BYy0@196.19.122.145:8000"
