@@ -368,11 +368,12 @@ async def select_limit(message: types.Message, state: FSMContext):
         await msg_delete(message, state)
     if data.get('type') == "general":
         await state.update_data(limit=2, period_message_id=message.message_id)
-        await select_prompt(message, state)
-    max_limit = 31 if data.get('type') == 'one_channel' else 3
-    msg = await message.answer(MESSAGES["limit"]["select"][lang].format(max_limit=max_limit))
-    await state.update_data(period_message_id=msg.message_id)
-    await state.set_state(Data.waiting_for_limit)
+        return await select_prompt(message, state)
+    else:
+        max_limit = 31 if data.get('type') == 'one_channel' else 3
+        msg = await message.answer(MESSAGES["limit"]["select"][lang].format(max_limit=max_limit))
+        await state.update_data(period_message_id=msg.message_id)
+        await state.set_state(Data.waiting_for_limit)
 
 
 async def select_prompt(message: types.Message, state: FSMContext):
