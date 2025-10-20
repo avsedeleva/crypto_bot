@@ -71,7 +71,7 @@ async def split_messages(data):
   print('is_all_inclusive', is_all_inclusive)
   return {'messages': split_messages_dict, "start_date": start_date, "is_all_inclusive": is_all_inclusive}
 
-async def get_open_router_response(system_prompt: str, user_prompt: str, model) -> str:
+async def get_open_router_response(system_prompt: str, user_prompt: str, type_model) -> str:
   url = "https://openrouter.ai/api/v1/chat/completions"
   headers = {
           "Authorization": f"Bearer {os.environ.get('OPENROUTER_API_KEY')}",
@@ -79,22 +79,22 @@ async def get_open_router_response(system_prompt: str, user_prompt: str, model) 
             "HTTP-Referer": "test",  # Optional. Site URL for rankings on openrouter.ai.
             "X-Title": "test",  # Optional. Site title for rankings on openrouter.ai.
           }
-  model = "qwen/qwen3-vl-235b-a22b-instruct:online" if model!='twitter' else 'x-ai/grok-4-fast:online'
+  model = "qwen/qwen3-vl-235b-a22b-instruct:online" if type_model!='twitter' else "GPT-4o:online" #'x-ai/grok-4-fast'
   messages = [{"role": "system", "content": system_prompt},]
-  if model != 'twitter':
+  if type_model != 'twitter':
     messages = [
     {"role": "system", "content": system_prompt},
     {"role": "user", "content": user_prompt}
     ]
-
+  print(model, messages)
   payload = {
   "model": model, #"qwen/qwen3-vl-235b-a22b-instruct", #"deepseek/deepseek-v3.2-exp", #"qwen/qwen3-vl-235b-a22b-instruct",#"google/gemini-2.5-pro", #"openrouter/auto",
   "temperature": 0.1,
-  #"plugins": ["web"],
   "messages": messages,
   "max_tokens": 20000,
   'provider': {
-    'sort': 'latency'
+    'sort': 'latency',
+
   }
   }
 
@@ -105,7 +105,7 @@ async def get_open_router_response(system_prompt: str, user_prompt: str, model) 
               url,
               headers=headers,
               json=payload,
-              proxy=proxy
+              #proxy=proxy
               # timeout=aiohttp.ClientTimeout(total=60)  # Таймаут 60 сек
       ) as response:
         if response.status == 200:

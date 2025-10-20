@@ -60,7 +60,7 @@ def get_main_keyboard(lang):
             [KeyboardButton(text=MESSAGES["kbd"]["general_digest"][lang]), KeyboardButton(text=MESSAGES["kbd"]["general_forecast"][lang]), ],
             [KeyboardButton(text=MESSAGES["kbd"]["digest"][lang]), KeyboardButton(text=MESSAGES["kbd"]["analysis"][lang])],
             [KeyboardButton(text=MESSAGES["kbd"]["general_other"][lang]), KeyboardButton(text=MESSAGES["kbd"]["other"][lang])],
-            [KeyboardButton(text=MESSAGES["kbd"]["twitter"][lang]),]
+            #[KeyboardButton(text=MESSAGES["kbd"]["twitter"][lang]),]
 
              ],
         resize_keyboard=True,
