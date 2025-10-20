@@ -366,6 +366,9 @@ async def select_limit(message: types.Message, state: FSMContext):
     if data.get("channel_error"):
         # Удаляем старое сообщение
         await msg_delete(message, state)
+    if data.get('type') == "general":
+        await state.update_data(limit=2, period_message_id=message.message_id)
+        await select_prompt(message, state)
     max_limit = 31 if data.get('type') == 'one_channel' else 3
     msg = await message.answer(MESSAGES["limit"]["select"][lang].format(max_limit=max_limit))
     await state.update_data(period_message_id=msg.message_id)
