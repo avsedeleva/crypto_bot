@@ -79,14 +79,14 @@ async def get_open_router_response(system_prompt: str, user_prompt: str, type_mo
             "HTTP-Referer": "test",  # Optional. Site URL for rankings on openrouter.ai.
             "X-Title": "test",  # Optional. Site title for rankings on openrouter.ai.
           }
-  model = "qwen/qwen3-vl-235b-a22b-instruct:online" if type_model!='twitter' else "GPT-4o:online" #'x-ai/grok-4-fast'
+  model = "qwen/qwen3-vl-8b-instruct" if type_model!='twitter' else "GPT-4o:online" #'x-ai/grok-4-fast'
   messages = [{"role": "system", "content": system_prompt},]
   if type_model != 'twitter':
     messages = [
     {"role": "system", "content": system_prompt},
     {"role": "user", "content": user_prompt}
     ]
-  print(model, messages)
+  print(json.dumps(messages, indent=4))
   payload = {
   "model": model, #"qwen/qwen3-vl-235b-a22b-instruct", #"deepseek/deepseek-v3.2-exp", #"qwen/qwen3-vl-235b-a22b-instruct",#"google/gemini-2.5-pro", #"openrouter/auto",
   "temperature": 0.1,
