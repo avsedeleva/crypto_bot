@@ -95,10 +95,10 @@ async def cmd_start(message: types.Message, state: FSMContext):
     # Удаляем старое сообщение
     await msg_delete(message, state)
     await state.clear()
-    await state.update_data(model='no_twitter', need_image=False)
+    await state.update_data(model='no_twitter', need_image=False, lang='ru')
     logger_general.info('USER %s %s %s START', message.from_user.id, message.from_user.first_name, message.from_user.username)
     await message.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-    await select_lang(message, state)
+    await select_option(message, state)
     '''msg = await message.answer(
         MESSAGES['start'][lang],
         reply_markup=get_main_keyboard(lang)
@@ -115,10 +115,10 @@ async def cmd_command(message: types.Message, state: FSMContext):
     # Удаляем старое сообщение
     await msg_delete(message, state)
     await state.clear()
-    await state.update_data(model='no_twitter', need_image=False)
+    await state.update_data(model='no_twitter', need_image=False, lang='ru')
     logger_general.info('USER %s %s %s MENU', message.from_user.id, message.from_user.first_name, message.from_user.username)
     await message.bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
-    await select_lang(message, state)
+    await select_option(message, state)
     '''msg = await message.answer(
         MESSAGES['menu'][lang],
         reply_markup=get_main_keyboard(lang)
